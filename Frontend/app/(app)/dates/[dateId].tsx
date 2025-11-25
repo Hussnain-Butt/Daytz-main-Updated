@@ -1,6 +1,6 @@
-// ✅ COMPLETE AND FINAL UPDATED CODE
-// (app)/dates/[dateId].tsx
-// ✅✅✅ RESPONSIVE DESIGN KE LIYE UPDATE KIYA GAYA VERSION ✅✅✅
+// --- COMPLETE FINAL UPDATED CODE: app/(app)/dates/[dateId].tsx ---
+// ✅ CHANGE: Fixed Reschedule/Accept/Decline buttons to fit on one line and adjust to screen size using flex.
+// ✅ CHANGE: "Final" Rotating Prompts added when confirming a date.
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -20,7 +20,7 @@ import {
   FlatList,
   TouchableWithoutFeedback,
   Keyboard,
-  Dimensions, // ✅ RESPONSIVENESS KE LIYE IMPORT KIYA GAYA
+  Dimensions,
 } from 'react-native';
 import { Avatar } from 'react-native-paper';
 import { format, isValid, isWithinInterval, addMinutes, subMinutes } from 'date-fns';
@@ -41,15 +41,24 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // Assets
-const BACK_ARROW_ICON = require('../../../assets/back_arrow_icon.png');
+const BACK_ARROW_ICON = require '../../../assets/back_arrow_icon.png');
 const BRAND_LOGO = require('../../../assets/brand.png');
 const calcHappyIcon = require('../../../assets/calc-happy.png');
 const calcErrorIcon = require('../../../assets/calc-error.png');
 
+// --- CAL'S ROTATING PROMPTS (FINAL/DATE CONFIRMED) ---
+const FINAL_PROMPTS = [
+  "Alright now, you two can take it from here and try to have fun",
+  "It's a date! Be respectful and have a blast.",
+  "I've done my job. Now it's your turn—go have fun!",
+  "Details locked. Enjoy your time together!",
+  "Plan confirmed. Stay safe and enjoy!"
+];
+let finalPromptIndex = 0;
+
 // Google Places API Key
 const GOOGLE_PLACES_API_KEY = 'AIzaSyBwOm3P6Ji4Bleg3bLsT2TiumWAQF57uBM';
 
-// screenColors
 const screenColors = {
   background: '#121212',
   textPrimary: '#FFFFFF',
@@ -70,13 +79,10 @@ const screenColors = {
   White: '#FFFFFF',
 };
 
-// --- RESPONSIVE SCALING HELPER ---
-// ✅✅✅ UI ELEMENTS KO RESPONSIVE BANANE KE LIYE HELPER FUNCTION ✅✅✅
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BASE_WIDTH = 375;
 const scaleSize = (size: number) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 
-// ---- TZ-SAFE HELPERS ----
 const parseDateOnlyLocal = (dateStr?: string | null): Date | null => {
   if (!dateStr) return null;
   const s = dateStr.substring(0, 10);
@@ -97,7 +103,6 @@ const buildLocalDateTime = (dateStr?: string | null, timeStr?: string | null): D
   return base;
 };
 
-// BubblePopup Component
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) return null;
   const isSuccess = type === 'success';
@@ -122,7 +127,6 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
   );
 };
 
-// RescheduleModal Component
 const RescheduleModal = ({
   visible,
   onClose,
@@ -477,7 +481,12 @@ const DateDetailScreen = () => {
       await updateDate(dateId, { status });
       await fetchDateDetails();
       if (status === 'approved') {
-        showPopup('Date Confirmed!', 'The date details have been confirmed.', 'success');
+        // ✅ CAL'S FINAL ROTATING PROMPT
+        const prompt = FINAL_PROMPTS[finalPromptIndex];
+        finalPromptIndex = (finalPromptIndex + 1) % FINAL_PROMPTS.length;
+        
+        const safetyMsg = "\n\nImportant: Scheduling this date does not give consent, please remember to be respectful.";
+        showPopup('Date Confirmed!', prompt + safetyMsg, 'success');
       } else {
         showPopup('Date Declined', 'You have declined the proposed date details.', 'success', () =>
           router.back()
@@ -559,13 +568,13 @@ const DateDetailScreen = () => {
             style={[styles.actionButton, styles.rescheduleButton]}
             onPress={() => setRescheduleModalVisible(true)}
             disabled={isSubmitting}>
-            <Text style={styles.actionButtonText}>Reschedule</Text>
+            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Reschedule</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.declineButton]}
             onPress={handleCancelDate}
             disabled={isSubmitting}>
-            <Text style={styles.actionButtonText}>Cancel Date</Text>
+            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Cancel Date</Text>
           </TouchableOpacity>
         </View>
       );
@@ -585,20 +594,21 @@ const DateDetailScreen = () => {
               {isSubmitting ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.actionButtonText}>Accept</Text>
+                <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Accept</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.rescheduleButton]}
               onPress={() => setRescheduleModalVisible(true)}
               disabled={isSubmitting}>
-              <Text style={styles.actionButtonText}>Reschedule</Text>
+              {/* ✅ UPDATED: Ensures "Reschedule" fits on one line and scales */}
+              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Reschedule</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.declineButton]}
               onPress={() => handleUpdateStatus('declined')}
               disabled={isSubmitting}>
-              <Text style={styles.actionButtonText}>Decline</Text>
+              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Decline</Text>
             </TouchableOpacity>
           </View>
         );
@@ -770,8 +780,6 @@ const DateDetailScreen = () => {
   );
 };
 
-// --- STYLES ---
-// ✅✅✅ RESPONSIVE STYLING KE LIYE UPDATE KIYA GAYA ✅✅✅
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: screenColors.background },
   loadingContainer: {
@@ -876,21 +884,27 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? scaleSize(34) : scaleSize(20),
   },
   actionContainer: { flexDirection: 'row', justifyContent: 'space-between' },
-  actionContainerThreeButtons: { flexDirection: 'row', justifyContent: 'space-around' },
+  actionContainerThreeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: scaleSize(5),
+  },
   actionButton: {
     flex: 1,
     borderRadius: scaleSize(12),
-    paddingVertical: scaleSize(16),
+    paddingVertical: scaleSize(14), // Balanced vertical padding
     alignItems: 'center',
-    marginHorizontal: scaleSize(5),
+    justifyContent: 'center', // Vertically center text
+    marginHorizontal: scaleSize(3), // Tighter margins to give space for text
   },
   acceptButton: { backgroundColor: screenColors.acceptButton },
   declineButton: { backgroundColor: screenColors.declineButton },
   rescheduleButton: { backgroundColor: screenColors.rescheduleButton },
   actionButtonText: {
-    fontSize: scaleSize(18),
+    fontSize: scaleSize(13), // Reduced font size to ensure "Reschedule" fits
     fontWeight: 'bold',
     color: screenColors.buttonText,
+    textAlign: 'center',
   },
   infoBox: {
     backgroundColor: screenColors.cardBackground,

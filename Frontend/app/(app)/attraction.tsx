@@ -1,4 +1,5 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/attraction.tsx ---
+// ✅ CHANGE: "Why" Rotating Prompts added via BubblePopup on mount.
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -41,6 +42,16 @@ const TOKEN_ICON = require('../../assets/match.png');
 
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
+
+// --- CAL'S ROTATING PROMPTS (WHY) ---
+const WHY_PROMPTS = [
+  'Let me in on why you are interested in this person',
+  "Tell me what you like about them, I'll tell them nicely.",
+  "What's the vibe? Romantic, friendly, or...?",
+  'Why them? Give me the details.',
+  'Help me understand your intentions here.',
+];
+let whyPromptIndex = 0;
 
 // --- CONSTANTS AND HELPER COMPONENTS ---
 const ROMANTIC_LABELS: Record<number, string> = {
@@ -160,6 +171,16 @@ export default function AttractionScreen() {
   });
 
   const [sliderWidth, setSliderWidth] = useState(0);
+
+  // ✅ Wingman "Why" Prompt Trigger
+  useEffect(() => {
+    // This triggers Cal to ask "Why?" when the user lands on the attraction screen
+    const prompt = WHY_PROMPTS[whyPromptIndex];
+    whyPromptIndex = (whyPromptIndex + 1) % WHY_PROMPTS.length;
+
+    // Show the popup
+    showPopup('Cal says:', prompt, 'success');
+  }, []);
 
   const localStoryDate = useMemo(() => {
     if (!storyDate) return null;

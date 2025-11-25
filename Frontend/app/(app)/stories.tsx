@@ -1,6 +1,6 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/stories/index.tsx ---
-// This version implements distance-based story sorting and display.
-// ✅✅✅ RESPONSIVENESS KE LIYE UPDATE KIYA GAYA VERSION ✅✅✅
+// ✅ CHANGE 1: "Who" Rotating Prompts added on screen mount.
+// ✅ CHANGE 2: Attraction Button Icon replaced with 'calc-happy.png' (Cal).
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
@@ -42,22 +42,30 @@ import { colors } from '../../utils/theme';
 
 // --- Assets ---
 const CLOSE_ICON = require('../../assets/close_icon.png');
-const ATTRACTION_ICON = require('../../assets/calendarButton.png');
+// ✅ UPDATED: Attraction button is now Cal (Happy)
+const ATTRACTION_ICON = require('../../assets/calc-happy.png');
 const BLOCK_ICON = require('../../assets/blockIcon.png');
 const UNBLOCK_ICON = require('../../assets/unblockIcon.png');
 const DEFAULT_PROFILE_PIC = require('../../assets/characterIcon.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
-// --- Layout and Style Constants ---
-// ✅✅✅ RESPONSIVE LAYOUT KE LIYE CONSTANTS KO UPDATE KIYA GAYA HAI ✅✅✅
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IS_TABLET = SCREEN_WIDTH >= 768; // Tablet detection ke liye
-const CARD_HORIZONTAL_INSET = SCREEN_WIDTH * 0.04; // Percentage-based inset
-const CARD_BORDER_RADIUS = 16;
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
+// --- CAL'S ROTATING PROMPTS (WHO) ---
+const WHO_PROMPTS = [
+  'Who would you like to make plans with?',
+  'Anyone special you want to reach out to?',
+  "Pick someone you'd like to spend time with.",
+  "Who's on your mind right now?",
+  'Choose a person to make plans with!',
+];
+// Simple rotation logic variable (outside component to persist in session)
+let whoPromptIndex = 0;
 
-// Header aur Footer ki height ko screen height ke percentage ke roop mein set kiya gaya hai
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const IS_TABLET = SCREEN_WIDTH >= 768;
+const CARD_HORIZONTAL_INSET = SCREEN_WIDTH * 0.04;
+const CARD_BORDER_RADIUS = 16;
+
 const HEADER_AREA_HEIGHT = SCREEN_HEIGHT * (IS_TABLET ? 0.15 : 0.18);
 const FOOTER_AREA_HEIGHT = SCREEN_HEIGHT * (IS_TABLET ? 0.12 : 0.15);
 
@@ -65,10 +73,8 @@ const VIDEO_CARD_TOP_OFFSET = HEADER_AREA_HEIGHT;
 const VIDEO_CARD_HEIGHT = SCREEN_HEIGHT - HEADER_AREA_HEIGHT - FOOTER_AREA_HEIGHT;
 const VIDEO_CARD_WIDTH = SCREEN_WIDTH - 2 * CARD_HORIZONTAL_INSET;
 
-// Responsive font aur icon sizes ke liye ek helper function
 const scaleSize = (size: number) => (SCREEN_WIDTH / 375) * size;
 
-// --- Interfaces and Types ---
 interface StoryWithKey extends StoryQueryResult {
   uniqueStoryId: string;
   hasExistingAttraction: boolean;
@@ -88,7 +94,6 @@ interface StoryProgressBarsProps {
   onBarPress?: (index: number) => void;
 }
 
-// ✅✅✅ NAYE AUR BEHTAR RESPONSIVE DESIGN KE LIYE STYLES UPDATE KIYE GAYE HAIN ✅✅✅
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -219,7 +224,12 @@ const styles = StyleSheet.create({
   },
   actionsContainer: { flexDirection: 'row', justifyContent: 'space-around', width: '100%' },
   actionButton: { alignItems: 'center', padding: 10 },
-  actionIcon: { width: scaleSize(36), height: scaleSize(36), marginBottom: 4 },
+  actionIcon: {
+    width: scaleSize(45), // Made slightly larger for Cal
+    height: scaleSize(45),
+    marginBottom: 4,
+    resizeMode: 'contain',
+  },
   actionButtonText: { color: '#FFF', fontSize: scaleSize(11), fontWeight: '600' },
   disabledActionButton: { opacity: 0.4 },
   progressBarsContainer: {
@@ -463,7 +473,6 @@ const StoryPage = React.memo(
               )}
           </TouchableOpacity>
           <SafeAreaView style={styles.overlayContainer} pointerEvents="box-none">
-            {/* ✅ HEADER AUR FOOTER KO ABSOLUTE POSITIONING DI GAYI HAI ✅ */}
             <View style={styles.header}>
               <StoryProgressBars
                 storiesCount={storiesCount}
@@ -500,6 +509,7 @@ const StoryPage = React.memo(
 
             <View style={styles.footer}>
               <View style={styles.actionsContainer}>
+                {/* ✅ UPDATED: Attraction Icon is now Cal */}
                 <TouchableOpacity
                   onPress={onNavigateToAttraction}
                   style={[
@@ -570,6 +580,17 @@ export default function StoriesScreen() {
     setStories((prevStories) =>
       prevStories.map((story) => (story.userId === userId ? { ...story, ...updates } : story))
     );
+  }, []);
+
+  // ✅ Wingman "Who" Prompt Trigger
+  useEffect(() => {
+    // This triggers Cal to ask "Who?" when the user lands on the stories screen
+    const prompt = WHO_PROMPTS[whoPromptIndex];
+    // Rotate index
+    whoPromptIndex = (whoPromptIndex + 1) % WHO_PROMPTS.length;
+
+    // Show the popup
+    showPopup('Cal says:', prompt, 'success');
   }, []);
 
   useEffect(() => {

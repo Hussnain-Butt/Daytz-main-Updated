@@ -1,6 +1,8 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/upload-day-video.tsx ---
+// ✅ CHANGE: "What" Rotating Prompts replacing static title text.
+// ✅ CHANGE: Added Speech Bubble Tail and Animation to "Cal" popup based on image feedback.
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,6 +15,8 @@ import {
   Image,
   Modal,
   StatusBar as RNStatusBar,
+  Animated, // Added for animation
+  Easing,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,22 +34,60 @@ const MAX_VIDEO_DURATION_MS = MAX_VIDEO_DURATION_SECONDS * 1000;
 const ERROR_IMAGE = require('../../assets/calc-error.png');
 const HAPPY_IMAGE = require('../../assets/calc-happy.png');
 
-// --- BUBBLE POPUP COMPONENT (UNCHANGED) ---
+// --- CAL'S ROTATING PROMPTS (WHAT) ---
+const WHAT_PROMPTS = [
+  'Hey, tell me what you got planned and would some company for?',
+  "What's the move? Pitch it to me, I'll pass it on.",
+  'Record a clip: What are you up to today?',
+  'Show them what a fun date looks like with you.',
+  'What’s the plan? Let’s find you a partner.',
+];
+let whatPromptIndex = 0;
+
+// --- BUBBLE POPUP COMPONENT (Animated with Speech Tail) ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
+  const scaleValue = useRef(new Animated.Value(0)).current; // Animation value
+
+  useEffect(() => {
+    if (visible) {
+      // Spring animation to give Cal "personality"
+      scaleValue.setValue(0);
+      Animated.spring(scaleValue, {
+        toValue: 1,
+        friction: 5,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
   if (!visible) {
     return null;
   }
+
   const isSuccess = type === 'success';
   const imageSource = isSuccess ? HAPPY_IMAGE : ERROR_IMAGE;
   const buttonStyle = isSuccess ? styles.successButton : styles.errorButton;
   const buttonTextStyle = isSuccess ? styles.successButtonText : styles.errorButtonText;
   const bubbleBgColor = styles.bubbleLight;
+
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.popupContainer}>
-          <Image source={imageSource} style={styles.popupImage} />
+          {/* Animated Character */}
+          <Animated.Image
+            source={imageSource}
+            style={[
+              styles.popupImage,
+              { transform: [{ scale: scaleValue }] }, // Apply scale animation
+            ]}
+          />
+
           <View style={[styles.bubble, bubbleBgColor]}>
+            {/* Speech Bubble Tail */}
+            <View style={styles.bubbleTail} />
+
             <Text style={styles.popupTitle}>{title}</Text>
             <Text style={styles.popupMessage}>{message}</Text>
             <TouchableOpacity style={[styles.popupButton, buttonStyle]} onPress={onClose}>
@@ -57,7 +99,6 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
     </Modal>
   );
 };
-// --- END OF BUBBLE POPUP COMPONENT ---
 
 const UploadDayVideo = () => {
   const router = useRouter();
@@ -67,6 +108,16 @@ const UploadDayVideo = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const videoPlayerRef = useRef<Video>(null);
+
+  // Hook for rotating prompt
+  const [screenTitle, setScreenTitle] = useState('Upload Your Video');
+
+  useEffect(() => {
+    // Set the prompt based on rotation
+    const prompt = WHAT_PROMPTS[whatPromptIndex];
+    whatPromptIndex = (whatPromptIndex + 1) % WHAT_PROMPTS.length;
+    setScreenTitle(prompt);
+  }, []);
 
   const [popupState, setPopupState] = useState({
     visible: false,
@@ -214,8 +265,6 @@ const UploadDayVideo = () => {
 
       formData.append('date', date);
 
-      // ✅✅✅ NAYI LOGIC YAHAN SHURU HOTI HAI ✅✅✅
-      // API call ab response mein 'hasNearbyStories' bhi dega.
       const response = await uploadCalendarVideo(formData, (progressEvent) => {
         if (progressEvent && progressEvent.total && progressEvent.total > 0) {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -226,7 +275,6 @@ const UploadDayVideo = () => {
       const hasNearbyStories = response.data?.hasNearbyStories;
 
       if (hasNearbyStories) {
-        // SCENARIO 1: Dusre users ki stories mojood hain.
         showPopup(
           'success',
           'Success!',
@@ -235,7 +283,7 @@ const UploadDayVideo = () => {
           () => router.push({ pathname: '/(app)/stories', params: { date } })
         );
       } else {
-        // SCENARIO 2: Koi aur user nahi hai.
+        // Updated text to match the image exactly
         showPopup(
           'success',
           'Success!',
@@ -250,7 +298,6 @@ const UploadDayVideo = () => {
           }
         );
       }
-      // ✅✅✅ NAYI LOGIC YAHAN KHATAM HOTI HAI ✅✅✅
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.message || error.message || 'Could not upload video.';
@@ -265,7 +312,8 @@ const UploadDayVideo = () => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          <Text style={styles.title}>Upload Your Video</Text>
+          {/* ✅ UPDATED TITLE WITH ROTATING PROMPT */}
+          <Text style={styles.title}>{screenTitle}</Text>
           <Text style={styles.dateText}>
             For Date: {date ? format(parse(date, 'yyyy-MM-dd', new Date()), 'MMMM do, yyyy') : ''}
           </Text>
@@ -363,7 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 10,
@@ -444,14 +492,14 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     resizeMode: 'contain',
-    zIndex: 1,
-    marginBottom: -80,
+    zIndex: 2, // Increased zIndex to be on top of tail
+    marginBottom: -85, // Pulls the bubble up closer to image
   },
   bubble: {
     position: 'relative',
     borderRadius: 25,
     padding: 20,
-    paddingTop: 90,
+    paddingTop: 80, // Space for the image overlap
     width: '90%',
     alignItems: 'center',
     shadowColor: '#000',
@@ -459,6 +507,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 10,
+    zIndex: 1,
+  },
+  // NEW STYLE: Speech Bubble Tail
+  bubbleTail: {
+    position: 'absolute',
+    top: -15, // Moves it above the bubble
+    left: '50%',
+    marginLeft: -10, // Centers it (half of width)
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 20, // Height of the triangle
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF', // Same color as bubbleLight
   },
   bubbleLight: {
     backgroundColor: '#FFFFFF',
@@ -487,7 +553,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFDB5C',
   },
   successButton: {
-    backgroundColor: '#3cd9d6',
+    backgroundColor: '#3cd9d6', // Teal color from image
   },
   errorButtonText: {
     color: '#000000',

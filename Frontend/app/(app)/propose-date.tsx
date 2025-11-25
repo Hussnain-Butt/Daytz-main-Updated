@@ -1,6 +1,5 @@
-// ✅ COMPLETE AND FINAL UPDATED CODE
-// Added client-side conflict detection and location-biased venue search.
-// ✅✅✅ RESPONSIVE DESIGN KE LIYE UPDATE KIYA GAYA VERSION ✅✅✅
+// --- COMPLETE FINAL UPDATED CODE: app/(app)/propose-date.tsx ---
+// ✅ CHANGE: "Where" Rotating Prompts added via BubblePopup on mount.
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -20,7 +19,7 @@ import {
   FlatList,
   TouchableWithoutFeedback,
   Alert,
-  Dimensions, // ✅ RESPONSIVENESS KE LIYE IMPORT KIYA GAYA
+  Dimensions,
 } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { format, isValid, addMinutes, subMinutes, isWithinInterval } from 'date-fns';
@@ -39,7 +38,6 @@ import { CreateDatePayload, DateObject as DateType, UpcomingDate } from '../../t
 import { User } from '../../types/User';
 import { Attraction as AttractionResponse } from '../../types/Attraction';
 
-// --- Assets, Colors, Components ---
 const BACK_ARROW_ICON = require('../../assets/back_arrow_icon.png');
 const BRAND_LOGO = require('../../assets/brand.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
@@ -60,13 +58,20 @@ const screenColors = {
   White: '#FFFFFF',
 };
 
-// --- RESPONSIVE SCALING HELPER ---
-// ✅✅✅ UI ELEMENTS KO RESPONSIVE BANANE KE LIYE HELPER FUNCTION ✅✅✅
+// --- CAL'S ROTATING PROMPTS (WHERE) ---
+const WHERE_PROMPTS = [
+  "Everyone has passed the vibe check, now let's figure out the where!",
+  "You both like each other—I'll help lock a spot.",
+  'Where should we send you two?',
+  'Pick a great spot for the meetup.',
+  'Location time! Where is this happening?',
+];
+let wherePromptIndex = 0;
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BASE_WIDTH = 375;
 const scaleSize = (size: number) => (SCREEN_WIDTH / BASE_WIDTH) * size;
 
-// --- Timezone-Safe Date Helpers ---
 const parseDateOnlyLocal = (dateStr?: string | null): Date | null => {
   if (!dateStr) return null;
   const s = dateStr.substring(0, 10);
@@ -87,7 +92,6 @@ const buildLocalDateTime = (dateStr?: string | null, timeStr?: string | null): D
   return base;
 };
 
-// BubblePopup Component
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) return null;
   const isSuccess = type === 'success';
@@ -112,7 +116,6 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
   );
 };
 
-// Google Places API Key
 const GOOGLE_PLACES_API_KEY = 'AIzaSyBwOm3P6Ji4Bleg3bLsT2TiumWAQF57uBM';
 
 const ProposeDateScreen = () => {
@@ -157,6 +160,16 @@ const ProposeDateScreen = () => {
   ) => {
     setPopupState({ visible: true, title, message, type, onCloseCallback });
   };
+
+  // ✅ Wingman "Where" Prompt Trigger
+  useEffect(() => {
+    // This triggers Cal to ask "Where?" when the user lands on the propose-date screen
+    const prompt = WHERE_PROMPTS[wherePromptIndex];
+    wherePromptIndex = (wherePromptIndex + 1) % WHERE_PROMPTS.length;
+
+    // Show the popup
+    showPopup('Cal says:', prompt, 'success');
+  }, []);
 
   useEffect(() => {
     const geocodeZip = async (zip: string) => {
@@ -530,8 +543,6 @@ const ProposeDateScreen = () => {
   );
 };
 
-// --- STYLES ---
-// ✅✅✅ RESPONSIVE STYLING KE LIYE UPDATE KIYA GAYA ✅✅✅
 const styles = StyleSheet.create({
   container: {
     flex: 1,

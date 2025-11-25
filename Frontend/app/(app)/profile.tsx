@@ -1,6 +1,6 @@
 // File: app/(app)/profile.tsx
 // ✅ COMPLETE AND FINAL UPDATED CODE
-// ✅✅✅ RESPONSIVE DESIGN KE LIYE UPDATE KIYA GAYA VERSION ✅✅✅
+// ✅✅✅ "10 Secret Token" text hidden from UI (Backend logic remains same) ✅✅✅
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -52,7 +52,6 @@ const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
 // --- RESPONSIVE SCALING HELPER ---
-// ✅✅✅ UI ELEMENTS KO RESPONSIVE BANANE KE LIYE HELPER FUNCTION ✅✅✅
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BASE_WIDTH = 375; // Ek standard device width (jaise iPhone 8)
 const scaleSize = (size: number) => (SCREEN_WIDTH / BASE_WIDTH) * size;
@@ -331,17 +330,25 @@ const Profile = () => {
       }
       const res = await updateUser(updatePayload);
       if (res.data) {
+        // Backend logic for tokens is preserved here but hidden from user
         const oldTokenBalance = tokenBalance ?? userProfile.tokens ?? 0;
         const newTokenBalance = res.data.tokens;
         const gotBonus = newTokenBalance > oldTokenBalance;
+
         setUserProfile(res.data);
         let successMessage =
           wasInitialProfileIncomplete && res.data.is_profile_complete
             ? 'Profile Setup Complete!'
             : 'Profile updated successfully!';
-        if (gotBonus) {
-          successMessage += ` You received 10 bonus coins!`;
-        }
+
+        // -----------------------------------------------------
+        // HIDDEN FROM USER (BUT BACKEND STILL GIVES TOKENS)
+        // Client request: Remove "10 bonus coins" text from UI
+        // if (gotBonus) {
+        //   successMessage += ` You received 10 bonus coins!`;
+        // }
+        // -----------------------------------------------------
+
         showPopup('Success!', successMessage, 'success');
         if (wasInitialProfileIncomplete && res.data.is_profile_complete) {
           setProfileJustCompleted(true);
@@ -524,7 +531,12 @@ const Profile = () => {
                 editable={!isSaving}
                 placeholderTextColor={colors.LightGrey}
               />
-              <Text style={styles.helperText}>Answer for 10 bonus coins!</Text>
+              {/* 
+                  HIDDEN: Client requested to remove "10 bonus coins" text. 
+                  Backend will still award it, but user wont see the text here.
+                  
+                  <Text style={styles.helperText}>Answer for 10 bonus coins!</Text> 
+              */}
             </>
           )}
           <View style={styles.switchContainer}>
@@ -752,7 +764,6 @@ const Profile = () => {
 };
 
 // --- STYLES ---
-// ✅✅✅ RESPONSIVE STYLING KE LIYE UPDATE KIYA GAYA ✅✅✅
 const styles = StyleSheet.create({
   flexContainer: { flex: 1 },
   container: {

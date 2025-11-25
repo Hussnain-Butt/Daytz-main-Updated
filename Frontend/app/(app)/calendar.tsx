@@ -1,8 +1,4 @@
-// ✅ COMPLETE AND FINAL UPDATED CODE
-// ✅ PERSISTENT TUTORIAL: Logic updated to use userProfile flag from the database.
-// ✅ FIX: Tutorial timing logic moved to useFocusEffect to ensure it runs only when the screen is focused.
-// ✅ FIX: Responsiveness for pop-ups and modals improved.
-
+// --- COMPLETE FINAL UPDATED CODE: app/(app)/index.tsx (Calendar) ---
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   SafeAreaView,
@@ -44,8 +40,16 @@ const LOGO_IMAGE = require('../../assets/brand.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
-// ... (All components like parseDateOnlyLocal, FeedbackModal, etc. are UNCHANGED) ...
-// ---- TZ-SAFE HELPERS ----
+// --- CAL'S ROTATING PROMPTS (Giving Cal Life) ---
+const WHEN_PROMPTS = [
+  'Hey hey, so first I need to know where you want to plan this meetup?',
+  "When should I tell them you're free?",
+  "Pick a date, and I'll handle the rest.",
+  'Lock in a day to meet someone new.',
+  'What date do you have in mind?',
+];
+let whenPromptIndex = 0;
+
 const parseDateOnlyLocal = (dateStr?: string | null): Date | null => {
   if (!dateStr) return null;
   const s = dateStr.substring(0, 10);
@@ -64,7 +68,8 @@ const buildLocalDateTime = (dateStr?: string | null, timeStr?: string | null): D
   base.setHours(h, m, 0, 0);
   return base;
 };
-// --- FeedbackModal component (Unchanged) ---
+
+// --- Feedback Modal ---
 const FeedbackModal = ({ visible, onClose, onSubmit }) => {
   const [selectedOutcome, setSelectedOutcome] = useState<DateOutcome | null>(null);
   const [notes, setNotes] = useState('');
@@ -166,7 +171,8 @@ const FeedbackModal = ({ visible, onClose, onSubmit }) => {
     </Modal>
   );
 };
-// --- BubblePopup component (Unchanged) ---
+
+// --- General Bubble Popup (For Cal's messages) ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) return null;
   const isSuccess = type === 'success';
@@ -192,7 +198,7 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
     </Modal>
   );
 };
-// --- ConflictResolutionModal component (Unchanged) ---
+
 const ConflictResolutionModal = ({ visible, onClose, onResolve, proposalDate, originalDate }) => {
   if (!visible || !proposalDate || !originalDate) return null;
   const [isSubmitting, setIsSubmitting] = useState('');
@@ -252,25 +258,32 @@ const ConflictResolutionModal = ({ visible, onClose, onResolve, proposalDate, or
     </Modal>
   );
 };
-// --- TutorialPopup component (Updated for responsiveness) ---
+
+// --- NEW TUTORIAL POPUP COMPONENT (Based on Figma) ---
 const TutorialPopup = ({ visible, step, onNext, onFinish }) => {
   if (!visible || !step) return null;
   const { text, bubblePosition, highlightLayout } = step;
   const isLastStep = step.isLast;
   const screen = Dimensions.get('window');
+
+  // Logic to draw the "Spotlight" (darken everything except the target)
   const showSpotlight = highlightLayout && highlightLayout.width > 0;
+
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.tutorialOverlayContainer}>
         {showSpotlight && (
           <>
+            {/* Top mask */}
             <View style={[styles.overlayPart, { top: 0, height: highlightLayout.y }]} />
+            {/* Bottom mask */}
             <View
               style={[
                 styles.overlayPart,
                 { top: highlightLayout.y + highlightLayout.height, height: screen.height },
               ]}
             />
+            {/* Left mask */}
             <View
               style={[
                 styles.overlayPart,
@@ -281,6 +294,7 @@ const TutorialPopup = ({ visible, step, onNext, onFinish }) => {
                 },
               ]}
             />
+            {/* Right mask */}
             <View
               style={[
                 styles.overlayPart,
@@ -295,7 +309,7 @@ const TutorialPopup = ({ visible, step, onNext, onFinish }) => {
           </>
         )}
         {!showSpotlight && <View style={styles.overlayPartFull} />}
-        {/* The wrapper now handles positioning and centering */}
+
         <View style={[styles.tutorialContentWrapper, bubblePosition]}>
           <View style={styles.tutorialContentContainer}>
             <Image source={calcHappyIcon} style={styles.tutorialImage} />
@@ -314,7 +328,6 @@ const TutorialPopup = ({ visible, step, onNext, onFinish }) => {
   );
 };
 
-// --- Helper for attraction type (Unchanged) ---
 const getTypeOfAttraction = (r, s, f) => {
   const interest = r + s + f;
   if (interest === 0) return 'Not Specified';
@@ -330,7 +343,7 @@ const getTypeOfAttraction = (r, s, f) => {
   if (interest === 6) return 'Would Love to Meet';
   return 'My Person!';
 };
-// --- UpcomingDateItem Component (Unchanged) ---
+
 const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }) => {
   if (!item || !item.otherUser) return null;
   const localDateTime = useMemo(
@@ -417,7 +430,6 @@ const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }
   );
 };
 
-// --- Main Screen (Updated) ---
 const CalendarHomeScreen = () => {
   const { auth0User, isReady: isAuthReady, isLoading: isAuthLoading } = useAuth();
   const { userProfile, updateUserProfileOptimistic } = useUserStore();
@@ -440,7 +452,19 @@ const CalendarHomeScreen = () => {
   const [isConflictModalVisible, setConflictModalVisible] = useState(false);
   const [selectedDateForConflict, setSelectedDateForConflict] = useState<UpcomingDate | null>(null);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
-  const [layouts, setLayouts] = useState({});
+  const [layouts, setLayouts] = useState<any>({});
+
+  // ✅ Trigger Wingman Prompt (Animated Cal Message) on Mount
+  useEffect(() => {
+    // This rotates the "When?" prompt to give Cal life
+    const prompt = WHEN_PROMPTS[whenPromptIndex];
+    whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
+
+    // Show this prompt only if user has ALREADY seen the tutorial (to avoid popup spam)
+    if (userProfile?.hasSeenCalendarTutorial) {
+      showPopup('Cal says:', prompt, 'success');
+    }
+  }, [userProfile?.hasSeenCalendarTutorial]);
 
   const handleSetLayout = useCallback((key, event) => {
     const { x, y, width, height } = event.nativeEvent.layout;
@@ -481,6 +505,7 @@ const CalendarHomeScreen = () => {
       if (isAuthReady && !isAuthLoading) {
         fetchAllScreenData();
       }
+      // Start Tutorial only if user hasn't seen it
       if (userProfile && userProfile.hasSeenCalendarTutorial === false) {
         const timer = setTimeout(() => {
           if (useUserStore.getState().userProfile?.hasSeenCalendarTutorial === false) {
@@ -565,7 +590,9 @@ const CalendarHomeScreen = () => {
   const handleFinishTutorial = async () => {
     setTutorialStep(null);
     try {
+      // Mark as seen in backend
       await markCalendarTutorialAsSeen();
+      // Optimistically update store
       updateUserProfileOptimistic({ hasSeenCalendarTutorial: true });
     } catch (error) {
       console.error('Failed to mark calendar tutorial as seen:', error);
@@ -576,6 +603,8 @@ const CalendarHomeScreen = () => {
     if (!selectedDateForConflict || !selectedDateForConflict.conflictsWithDateId) return null;
     return upcomingDates.find((d) => d.dateId === selectedDateForConflict.conflictsWithDateId);
   }, [selectedDateForConflict, upcomingDates]);
+
+  // --- TUTORIAL STEPS LOGIC (Based on Screenshots) ---
   const TUTORIAL_STEPS = useMemo(() => {
     const steps = [
       {
@@ -583,6 +612,7 @@ const CalendarHomeScreen = () => {
         bubblePosition: { justifyContent: 'center', alignItems: 'center' },
         highlightLayout: null,
       },
+      // Screenshot 2: Highlight Calendar
       {
         target: 'calendar',
         text: 'This is your calendar. Days with confirmed plans will be highlighted!',
@@ -590,6 +620,7 @@ const CalendarHomeScreen = () => {
           ? { top: layouts.calendar.y + layouts.calendar.height + 10, alignSelf: 'center' }
           : { justifyContent: 'center', alignItems: 'center' },
       },
+      // Screenshot 3: Highlight Header (Profile/Notifications)
       {
         target: 'header',
         text: 'You can access your profile and notifications from the top right corner.',
@@ -597,6 +628,7 @@ const CalendarHomeScreen = () => {
           ? { top: layouts.header.y + layouts.header.height + 10, alignSelf: 'flex-end', right: 15 }
           : { justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-end' },
       },
+      // Plans
       {
         target: 'plans',
         text: 'Scroll down to see your upcoming and past plans in detail.',
@@ -604,6 +636,7 @@ const CalendarHomeScreen = () => {
           ? { top: layouts.plans.y - 180, alignSelf: 'center' }
           : { justifyContent: 'center', alignItems: 'center' },
       },
+      // Screenshot 1: Highlight Bottom Bar
       {
         target: 'story',
         text: 'Tap the center button in the navigation bar below to post a story for your matches to see!',
@@ -735,7 +768,6 @@ const CalendarHomeScreen = () => {
   );
 };
 
-// --- STYLES (Updated for responsiveness) ---
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -988,25 +1020,23 @@ const styles = StyleSheet.create({
   tutorialOverlayContainer: {
     flex: 1,
     position: 'relative',
-    backgroundColor: 'transparent', // Let parts handle color
+    backgroundColor: 'transparent',
   },
   overlayPart: { position: 'absolute', backgroundColor: 'rgba(0, 0, 0, 0.85)' },
   overlayPartFull: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.85)' },
   tutorialContentWrapper: {
     position: 'absolute',
-    // This wrapper now handles positioning via bubblePosition
-    // and ensures content within is centered and flexible.
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    alignItems: 'center', // Default align
-    padding: 15, // Padding to avoid screen edges
+    alignItems: 'center',
+    padding: 15,
   },
   tutorialContentContainer: {
-    alignItems: 'center', // Center image and bubble
+    alignItems: 'center',
     width: '100%',
-    maxWidth: 350, // Max width for larger screens
+    maxWidth: 350,
   },
   tutorialImage: {
     width: 180,
@@ -1020,7 +1050,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.White || '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    paddingTop: 80, // Space for the image overlap
+    paddingTop: 80,
     alignItems: 'center',
     zIndex: 1,
     shadowColor: '#000',
