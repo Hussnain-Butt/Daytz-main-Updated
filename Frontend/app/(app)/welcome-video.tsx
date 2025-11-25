@@ -1,6 +1,7 @@
-// File: app/welcome-video.tsx
+// File: app/(app)/welcome-video.tsx
 // ✅ COMPLETE AND FINAL CODE
 // ✅✅✅ Video removed, Replaced with "Cal" Image ✅✅✅
+// ✅✅✅ Fixed Import Paths for (app) folder structure ✅✅✅
 
 import React from 'react';
 import {
@@ -15,11 +16,12 @@ import {
   StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useUserStore } from '../store/useUserStore';
-import { colors } from '../utils/theme'; // Assuming theme colors are available here based on previous files
+// ERROR FIX: Changed "../" to "../../" because file is inside app/(app)/
+import { useUserStore } from '../../store/useUserStore';
+import { colors } from '../../utils/theme';
 
-// Using the "Cal" happy image as requested
-const CAL_IMAGE = require('../assets/calc-happy.png');
+// ERROR FIX: Changed "../" to "../../" for assets as well
+const CAL_IMAGE = require('../../assets/calc-happy.png');
 
 const { width } = Dimensions.get('window');
 

@@ -41,18 +41,18 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 // Assets
-const BACK_ARROW_ICON = require '../../../assets/back_arrow_icon.png');
+const BACK_ARROW_ICON = require('../../../assets/back_arrow_icon.png');
 const BRAND_LOGO = require('../../../assets/brand.png');
 const calcHappyIcon = require('../../../assets/calc-happy.png');
 const calcErrorIcon = require('../../../assets/calc-error.png');
 
 // --- CAL'S ROTATING PROMPTS (FINAL/DATE CONFIRMED) ---
 const FINAL_PROMPTS = [
-  "Alright now, you two can take it from here and try to have fun",
+  'Alright now, you two can take it from here and try to have fun',
   "It's a date! Be respectful and have a blast.",
   "I've done my job. Now it's your turn—go have fun!",
-  "Details locked. Enjoy your time together!",
-  "Plan confirmed. Stay safe and enjoy!"
+  'Details locked. Enjoy your time together!',
+  'Plan confirmed. Stay safe and enjoy!',
 ];
 let finalPromptIndex = 0;
 
@@ -484,8 +484,9 @@ const DateDetailScreen = () => {
         // ✅ CAL'S FINAL ROTATING PROMPT
         const prompt = FINAL_PROMPTS[finalPromptIndex];
         finalPromptIndex = (finalPromptIndex + 1) % FINAL_PROMPTS.length;
-        
-        const safetyMsg = "\n\nImportant: Scheduling this date does not give consent, please remember to be respectful.";
+
+        const safetyMsg =
+          '\n\nImportant: Scheduling this date does not give consent, please remember to be respectful.';
         showPopup('Date Confirmed!', prompt + safetyMsg, 'success');
       } else {
         showPopup('Date Declined', 'You have declined the proposed date details.', 'success', () =>
@@ -568,13 +569,17 @@ const DateDetailScreen = () => {
             style={[styles.actionButton, styles.rescheduleButton]}
             onPress={() => setRescheduleModalVisible(true)}
             disabled={isSubmitting}>
-            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Reschedule</Text>
+            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+              Reschedule
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.declineButton]}
             onPress={handleCancelDate}
             disabled={isSubmitting}>
-            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Cancel Date</Text>
+            <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+              Cancel Date
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -594,7 +599,9 @@ const DateDetailScreen = () => {
               {isSubmitting ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Accept</Text>
+                <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+                  Accept
+                </Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -602,13 +609,17 @@ const DateDetailScreen = () => {
               onPress={() => setRescheduleModalVisible(true)}
               disabled={isSubmitting}>
               {/* ✅ UPDATED: Ensures "Reschedule" fits on one line and scales */}
-              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Reschedule</Text>
+              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+                Reschedule
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.declineButton]}
               onPress={() => handleUpdateStatus('declined')}
               disabled={isSubmitting}>
-              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>Decline</Text>
+              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+                Decline
+              </Text>
             </TouchableOpacity>
           </View>
         );
