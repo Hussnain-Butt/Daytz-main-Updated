@@ -1,5 +1,5 @@
 // File: app/(auth)/login.tsx
-// ✅ CORRECTED AND UPDATED
+// ✅ FINAL CODE: Exact Design as provided. Only Button. No Inputs.
 
 import React, { useEffect } from 'react';
 import {

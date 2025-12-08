@@ -1,6 +1,7 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/stories/index.tsx ---
 // ✅ CHANGE 1: "Who" Rotating Prompts added on screen mount.
 // ✅ CHANGE 2: Attraction Button Icon replaced with 'calc-happy.png' (Cal).
+// ✅ CHANGE 3: Added "Refresh" Button on the "No stories found" screen.
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
@@ -42,7 +43,6 @@ import { colors } from '../../utils/theme';
 
 // --- Assets ---
 const CLOSE_ICON = require('../../assets/close_icon.png');
-// ✅ UPDATED: Attraction button is now Cal (Happy)
 const ATTRACTION_ICON = require('../../assets/calc-happy.png');
 const BLOCK_ICON = require('../../assets/blockIcon.png');
 const UNBLOCK_ICON = require('../../assets/unblockIcon.png');
@@ -58,7 +58,6 @@ const WHO_PROMPTS = [
   "Who's on your mind right now?",
   'Choose a person to make plans with!',
 ];
-// Simple rotation logic variable (outside component to persist in session)
 let whoPromptIndex = 0;
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -105,6 +104,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: scaleSize(30),
     borderRadius: 25,
     marginTop: 20,
+  },
+  refreshButton: {
+    backgroundColor: colors.PinkPrimary || '#FF6B6B', // Red/Pink specific for Refresh
+    marginTop: 15,
   },
   messageButtonText: { color: colors.Black || '#000', fontSize: scaleSize(16), fontWeight: 'bold' },
   page: {
@@ -607,7 +610,8 @@ export default function StoriesScreen() {
     setError(`Failed to ${context}. Please try again.`);
   }, []);
 
-  useEffect(() => {
+  // ✅ UPDATED: Fetching Logic Extracted to Function for Refresh Capability
+  const fetchStoriesData = useCallback(async () => {
     if (!date) {
       handleApiError('Date parameter is missing.', 'initialization');
       setLoading(false);
@@ -620,61 +624,61 @@ export default function StoriesScreen() {
     }
     if (!authUser?.sub) return;
 
-    const fetchStoriesAndAttractions = async () => {
-      setLoading(true);
-      setError(null);
-      setStories([]);
+    setLoading(true);
+    setError(null);
+    setStories([]);
 
-      try {
-        const response = await getStoriesByDate(date);
-        const storiesFromOtherUsers = (response.data || []) as StoryQueryResult[];
+    try {
+      const response = await getStoriesByDate(date);
+      const storiesFromOtherUsers = (response.data || []) as StoryQueryResult[];
 
-        if (storiesFromOtherUsers.length === 0) {
-          setStories([]);
-          setLoading(false);
-          return;
-        }
+      if (storiesFromOtherUsers.length === 0) {
+        setStories([]);
+        setLoading(false);
+        return;
+      }
 
-        const attractionChecks = storiesFromOtherUsers.map((story) =>
-          getAttractionByUserFromUserToAndDate(authUser.sub!, story.userId, date)
-            .then((res) => !!res.data)
-            .catch(() => false)
-        );
+      const attractionChecks = storiesFromOtherUsers.map((story) =>
+        getAttractionByUserFromUserToAndDate(authUser.sub!, story.userId, date)
+          .then((res) => !!res.data)
+          .catch(() => false)
+      );
 
-        const attractionResults = await Promise.all(attractionChecks);
+      const attractionResults = await Promise.all(attractionChecks);
 
-        const storiesWithFullData: StoryWithKey[] = storiesFromOtherUsers.map((story, index) => ({
-          ...story,
-          userName: story.userName || 'User',
-          uniqueStoryId: story.calendarId?.toString() ?? `generated-${date}-${index}`,
-          hasExistingAttraction: attractionResults[index],
-          isBlocked: story.isBlocked || false,
-          distance: story.distance || '999',
-        }));
+      const storiesWithFullData: StoryWithKey[] = storiesFromOtherUsers.map((story, index) => ({
+        ...story,
+        userName: story.userName || 'User',
+        uniqueStoryId: story.calendarId?.toString() ?? `generated-${date}-${index}`,
+        hasExistingAttraction: attractionResults[index],
+        isBlocked: story.isBlocked || false,
+        distance: story.distance || '999',
+      }));
 
-        if (initialUserId) {
-          const initialIndex = storiesWithFullData.findIndex((s) => s.userId === initialUserId);
-          if (initialIndex !== -1) {
-            setStories(storiesWithFullData);
-            setTimeout(() => {
-              flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
-              setCurrentIndex(initialIndex);
-            }, 100);
-          } else {
-            setStories(storiesWithFullData);
-          }
+      if (initialUserId) {
+        const initialIndex = storiesWithFullData.findIndex((s) => s.userId === initialUserId);
+        if (initialIndex !== -1) {
+          setStories(storiesWithFullData);
+          setTimeout(() => {
+            flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+            setCurrentIndex(initialIndex);
+          }, 100);
         } else {
           setStories(storiesWithFullData);
         }
-      } catch (e: any) {
-        handleApiError(e, 'fetching stories');
-      } finally {
-        setLoading(false);
+      } else {
+        setStories(storiesWithFullData);
       }
-    };
-
-    fetchStoriesAndAttractions();
+    } catch (e: any) {
+      handleApiError(e, 'fetching stories');
+    } finally {
+      setLoading(false);
+    }
   }, [date, authUser, authContextLoading, handleApiError, initialUserId]);
+
+  useEffect(() => {
+    fetchStoriesData();
+  }, [fetchStoriesData]);
 
   useEffect(() => {
     const fetchUrlForStory = async (storyIndex: number) => {
@@ -945,6 +949,12 @@ export default function StoriesScreen() {
         <TouchableOpacity onPress={navigateBack} style={styles.messageButton}>
           <Text style={styles.messageButtonText}>Go Back</Text>
         </TouchableOpacity>
+        {/* Added Refresh Button for Error State as well */}
+        <TouchableOpacity
+          onPress={fetchStoriesData}
+          style={[styles.messageButton, styles.refreshButton]}>
+          <Text style={styles.messageButtonText}>Refresh</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -954,6 +964,12 @@ export default function StoriesScreen() {
         <Text style={styles.messageText}>No nearby stories found for this date.</Text>
         <TouchableOpacity onPress={navigateBack} style={styles.messageButton}>
           <Text style={styles.messageButtonText}>Go Back</Text>
+        </TouchableOpacity>
+        {/* ✅ UPDATED: Refresh Button added */}
+        <TouchableOpacity
+          onPress={fetchStoriesData}
+          style={[styles.messageButton, styles.refreshButton]}>
+          <Text style={styles.messageButtonText}>Refresh</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );

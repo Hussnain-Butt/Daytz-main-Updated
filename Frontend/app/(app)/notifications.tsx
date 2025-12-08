@@ -1,7 +1,9 @@
-// ✅ COMPLETE AND FINAL UPDATED CODE
 // File: app/(app)/notifications.tsx
+// ✅ COMPLETE AND FINAL UPDATED CODE
+// ✅✅✅ FIXED: Added One-Time Tutorial Logic (Persistent) ✅✅✅
+// ✅✅✅ FIXED: Tutorial Highlights Refresh Button & List Area ✅✅✅
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   SafeAreaView,
   View,
@@ -15,19 +17,139 @@ import {
   StatusBar as RNStatusBar,
   RefreshControl,
   Modal,
+  Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
 import { colors } from '../../utils/theme';
 import { getMyNotifications, markNotificationsAsRead } from '../../api/api';
 import { Notification } from '../../types/Notification';
+import { getItemAsync, setItemAsync } from 'expo-secure-store'; // ✅ For local tutorial persistence
 
 const BACK_ARROW_ICON = require('../../assets/back_arrow_icon.png');
 const NOTIFICATION_BELL_ICON = require('../../assets/notification_bell_icon.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
-// --- BUBBLE POPUP COMPONENT (UNCHANGED) ---
+// --- CONSTANTS ---
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const TUTORIAL_STORAGE_KEY = 'has_seen_notifications_tutorial_v1';
+
+// --- TUTORIAL GLOW OVERLAY COMPONENT ---
+const TutorialGlowOverlay = ({ visible, step, onNext, onFinish }) => {
+  if (!visible || !step) return null;
+  const { text, targetLayout, isLast } = step;
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const hasTarget = targetLayout && targetLayout.width > 0;
+
+  // Calculate masks
+  const maskTopHeight = hasTarget ? Math.max(0, targetLayout.y) : 0;
+  const maskBottomTop = hasTarget ? targetLayout.y + targetLayout.height : SCREEN_HEIGHT;
+  const maskLeftWidth = hasTarget ? targetLayout.x : 0;
+  const maskRightLeft = hasTarget ? targetLayout.x + targetLayout.width : SCREEN_WIDTH;
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.tutorialOverlayContainer}>
+        {hasTarget ? (
+          <>
+            {/* Top Mask */}
+            <View style={[styles.maskPart, { top: 0, height: maskTopHeight, width: '100%' }]} />
+            {/* Bottom Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: maskBottomTop,
+                  height: Math.max(0, SCREEN_HEIGHT - maskBottomTop),
+                  width: '100%',
+                },
+              ]}
+            />
+            {/* Left Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                { top: targetLayout.y, height: targetLayout.height, width: maskLeftWidth, left: 0 },
+              ]}
+            />
+            {/* Right Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: targetLayout.y,
+                  height: targetLayout.height,
+                  width: Math.max(0, SCREEN_WIDTH - maskRightLeft),
+                  left: maskRightLeft,
+                },
+              ]}
+            />
+
+            {/* Glowing Border */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: targetLayout.y,
+                left: targetLayout.x,
+                width: targetLayout.width,
+                height: targetLayout.height,
+                borderRadius: 12,
+                borderWidth: 3,
+                borderColor: colors.GoldPrimary,
+                transform: [{ scale: pulseAnim }],
+                shadowColor: colors.GoldPrimary,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8,
+                shadowRadius: 10,
+                zIndex: 10,
+              }}
+            />
+          </>
+        ) : (
+          <View style={styles.maskPartFull} />
+        )}
+
+        <View style={[styles.tutorialBubbleContainer, { bottom: 80 }]}>
+          <Image source={calcHappyIcon} style={styles.tutorialCalImage} />
+          <View style={styles.tutorialBubble}>
+            <Text style={styles.tutorialText}>{text}</Text>
+            <TouchableOpacity
+              style={styles.tutorialNextButton}
+              onPress={isLast ? onFinish : onNext}>
+              <Text style={styles.tutorialButtonText}>{isLast ? 'Got it!' : 'Next'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// --- BUBBLE POPUP COMPONENT ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) {
     return null;
@@ -53,7 +175,6 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
     </Modal>
   );
 };
-// --- END OF BUBBLE POPUP COMPONENT ---
 
 const getNotificationIcon = (notificationType: string) => {
   if (notificationType === 'MATCH_PROPOSAL' || notificationType.startsWith('DATE_APPROVED')) {
@@ -98,6 +219,14 @@ export default function NotificationsScreen() {
     message: '',
   });
 
+  // --- TUTORIAL STATE ---
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [layouts, setLayouts] = useState<any>({});
+
+  // Refs for highlighting
+  const refreshButtonRef = useRef<View>(null);
+  const listAreaRef = useRef<View>(null);
+
   const showPopup = (title: string, message: string, type: 'success' | 'error' = 'error') => {
     setPopupState({ visible: true, title, message, type });
   };
@@ -112,9 +241,27 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  // Check Tutorial Status on Mount
   useEffect(() => {
+    const checkTutorial = async () => {
+      try {
+        const hasSeen = await getItemAsync(TUTORIAL_STORAGE_KEY);
+        if (!hasSeen) {
+          // Slight delay to ensure UI renders
+          setTimeout(() => {
+            setTutorialStep(0);
+          }, 500);
+        }
+      } catch (e) {
+        console.log('Error checking tutorial status:', e);
+      }
+    };
+
     setIsLoading(true);
-    fetchNotifications().finally(() => setIsLoading(false));
+    fetchNotifications().finally(() => {
+      setIsLoading(false);
+      checkTutorial();
+    });
   }, [fetchNotifications]);
 
   useFocusEffect(
@@ -134,7 +281,6 @@ export default function NotificationsScreen() {
   }, [fetchNotifications]);
 
   const handleNotificationPress = (item: Notification) => {
-    console.log('Notification pressed:', item);
     switch (item.type) {
       case 'ATTRACTION_PROPOSAL':
         if (item.related_entity_id) {
@@ -143,7 +289,6 @@ export default function NotificationsScreen() {
             params: { date: item.related_entity_id },
           });
         } else {
-          console.warn('ATTRACTION_PROPOSAL notification is missing a date.');
           router.push('/(app)/calendar');
         }
         break;
@@ -177,6 +322,54 @@ export default function NotificationsScreen() {
     }
   };
 
+  // --- TUTORIAL LOGIC ---
+  const updateLayouts = () => {
+    if (refreshButtonRef.current) {
+      refreshButtonRef.current.measureInWindow((x, y, width, height) => {
+        setLayouts((prev) => ({ ...prev, refresh: { x, y, width, height } }));
+      });
+    }
+    if (listAreaRef.current) {
+      listAreaRef.current.measureInWindow((x, y, width, height) => {
+        setLayouts((prev) => ({ ...prev, list: { x, y, width, height } }));
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (tutorialStep !== null) {
+      setTimeout(updateLayouts, 200);
+    }
+  }, [tutorialStep]);
+
+  const TUTORIAL_STEPS = useMemo(
+    () => [
+      {
+        text: 'Stay in the loop! This is your Notification Hub where new matches and date updates appear.',
+        targetLayout: layouts.list || null,
+      },
+      {
+        text: "Don't miss out—tap Refresh here anytime to make sure you have the latest updates.",
+        targetLayout: layouts.refresh || null,
+        isLast: true,
+      },
+    ],
+    [layouts]
+  );
+
+  const handleNextTutorial = () => {
+    if (tutorialStep !== null) setTutorialStep(tutorialStep + 1);
+  };
+
+  const handleFinishTutorial = async () => {
+    setTutorialStep(null);
+    try {
+      await setItemAsync(TUTORIAL_STORAGE_KEY, 'true');
+    } catch (e) {
+      console.error('Failed to save tutorial status', e);
+    }
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Image source={NOTIFICATION_BELL_ICON} style={styles.emptyIcon} />
@@ -194,33 +387,40 @@ export default function NotificationsScreen() {
           <Image source={BACK_ARROW_ICON} style={styles.headerIcon} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={onRefresh} disabled={isRefreshing}>
-          <Text style={styles.refreshButtonText}>Refresh</Text>
-        </TouchableOpacity>
+
+        {/* ✅ Refresh Button Targeted for Tutorial */}
+        <View ref={refreshButtonRef} collapsable={false}>
+          <TouchableOpacity style={styles.headerButton} onPress={onRefresh} disabled={isRefreshing}>
+            <Text style={styles.refreshButtonText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.GoldPrimary} />
-        </View>
-      ) : (
-        <FlatList
-          data={notifications}
-          renderItem={({ item }) => (
-            <NotificationItem item={item} onPress={handleNotificationPress} />
-          )}
-          keyExtractor={(item) => String(item.notification_id)}
-          ListEmptyComponent={renderEmptyState}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.White}
-            />
-          }
-        />
-      )}
+      {/* ✅ List Area Targeted for Tutorial */}
+      <View style={{ flex: 1 }} ref={listAreaRef} collapsable={false}>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.GoldPrimary} />
+          </View>
+        ) : (
+          <FlatList
+            data={notifications}
+            renderItem={({ item }) => (
+              <NotificationItem item={item} onPress={handleNotificationPress} />
+            )}
+            keyExtractor={(item) => String(item.notification_id)}
+            ListEmptyComponent={renderEmptyState}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.White}
+              />
+            }
+          />
+        )}
+      </View>
 
       <BubblePopup
         visible={popupState.visible}
@@ -229,6 +429,14 @@ export default function NotificationsScreen() {
         message={popupState.message}
         buttonText="OK"
         onClose={() => setPopupState((prev) => ({ ...prev, visible: false }))}
+      />
+
+      {/* ✅ TUTORIAL OVERLAY */}
+      <TutorialGlowOverlay
+        visible={tutorialStep !== null}
+        step={tutorialStep !== null ? TUTORIAL_STEPS[tutorialStep] : null}
+        onNext={handleNextTutorial}
+        onFinish={handleFinishTutorial}
       />
     </SafeAreaView>
   );
@@ -344,4 +552,62 @@ const styles = StyleSheet.create({
   successButton: { backgroundColor: colors.GoldPrimary || '#FFD700' },
   errorButtonText: { color: colors.White || '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
   successButtonText: { color: colors.Black || '#000000', fontSize: 15, fontWeight: 'bold' },
+
+  // --- TUTORIAL OVERLAY STYLES ---
+  tutorialOverlayContainer: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
+  maskPart: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  maskPartFull: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  tutorialBubbleContainer: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  tutorialCalImage: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
+    marginBottom: -50,
+    zIndex: 22,
+  },
+  tutorialBubble: {
+    width: '100%',
+    backgroundColor: colors.White || '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    paddingTop: 60,
+    alignItems: 'center',
+    zIndex: 21,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  tutorialText: {
+    fontSize: 16,
+    color: colors.LightBlack || '#222B45',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  tutorialNextButton: {
+    backgroundColor: colors.GoldPrimary || '#FFDB5C',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  tutorialButtonText: { color: colors.Black || '#000000', fontSize: 15, fontWeight: 'bold' },
 });

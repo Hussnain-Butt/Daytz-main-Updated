@@ -1,6 +1,8 @@
-// --- COMPLETE FINAL UPDATED CODE: app/(app)/upload-day-video.tsx ---
-// ✅ CHANGE: "What" Rotating Prompts replacing static title text.
-// ✅ CHANGE: Added Speech Bubble Tail and Animation to "Cal" popup based on image feedback.
+// File: app/(app)/upload-day-video.tsx
+// ✅ COMPLETE AND FINAL UPDATED CODE
+// ✅✅✅ FIXED: Video PAUSES and MUTES automatically when uploading starts ✅✅✅
+// ✅✅✅ FIXED: Prevents audio from playing while progress bar is active ✅✅✅
+// ✅✅✅ INCLUDES: Previous "Quiet out here" / Sad Cal fix preserved ✅✅✅
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -15,8 +17,7 @@ import {
   Image,
   Modal,
   StatusBar as RNStatusBar,
-  Animated, // Added for animation
-  Easing,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,32 +26,35 @@ import { uploadCalendarVideo } from '../../api/api';
 import { parse, format } from 'date-fns';
 import { Video, ResizeMode } from 'expo-av';
 
+// Type definition for ImagePicker
 type ImagePickerAsset = ImagePicker.ImagePickerAsset;
 
+// Constants
 const MAX_VIDEO_DURATION_SECONDS = 60;
 const MAX_VIDEO_DURATION_MS = MAX_VIDEO_DURATION_SECONDS * 1000;
 
-// Image paths
-const ERROR_IMAGE = require('../../assets/calc-error.png');
-const HAPPY_IMAGE = require('../../assets/calc-happy.png');
+// Image assets (Ensure these paths are correct in your project)
+const ERROR_IMAGE = require('../../assets/calc-error.png'); // Sad Cal
+const HAPPY_IMAGE = require('../../assets/calc-happy.png'); // Happy Cal
+const BACK_ARROW_ICON = require('../../assets/back_arrow_icon.png');
+const BRAND_LOGO = require('../../assets/brand.png');
 
-// --- CAL'S ROTATING PROMPTS (WHAT) ---
-const WHAT_PROMPTS = [
+// --- CAL'S CONVERSATIONAL PROMPTS ---
+const CONVERSATION_STARTERS = [
   'Hey, tell me what you got planned and would some company for?',
   "What's the move? Pitch it to me, I'll pass it on.",
-  'Record a clip: What are you up to today?',
+  'Record a quick clip: What are you up to today?',
   'Show them what a fun date looks like with you.',
-  'What’s the plan? Let’s find you a partner.',
+  "Help me help you. What's the vibe for this date?",
 ];
-let whatPromptIndex = 0;
+let promptIndex = 0;
 
 // --- BUBBLE POPUP COMPONENT (Animated with Speech Tail) ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
-  const scaleValue = useRef(new Animated.Value(0)).current; // Animation value
+  const scaleValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Spring animation to give Cal "personality"
       scaleValue.setValue(0);
       Animated.spring(scaleValue, {
         toValue: 1,
@@ -65,8 +69,11 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
     return null;
   }
 
+  // Logic: 'success' = Happy Cal, Anything else (error/neutral) = Sad Cal
   const isSuccess = type === 'success';
   const imageSource = isSuccess ? HAPPY_IMAGE : ERROR_IMAGE;
+
+  // Style: 'success' = Teal Button, Else = Gold/Yellow Button
   const buttonStyle = isSuccess ? styles.successButton : styles.errorButton;
   const buttonTextStyle = isSuccess ? styles.successButtonText : styles.errorButtonText;
   const bubbleBgColor = styles.bubbleLight;
@@ -78,10 +85,7 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
           {/* Animated Character */}
           <Animated.Image
             source={imageSource}
-            style={[
-              styles.popupImage,
-              { transform: [{ scale: scaleValue }] }, // Apply scale animation
-            ]}
+            style={[styles.popupImage, { transform: [{ scale: scaleValue }] }]}
           />
 
           <View style={[styles.bubble, bubbleBgColor]}>
@@ -109,19 +113,10 @@ const UploadDayVideo = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const videoPlayerRef = useRef<Video>(null);
 
-  // Hook for rotating prompt
-  const [screenTitle, setScreenTitle] = useState('Upload Your Video');
-
-  useEffect(() => {
-    // Set the prompt based on rotation
-    const prompt = WHAT_PROMPTS[whatPromptIndex];
-    whatPromptIndex = (whatPromptIndex + 1) % WHAT_PROMPTS.length;
-    setScreenTitle(prompt);
-  }, []);
-
+  // Popup State Management
   const [popupState, setPopupState] = useState({
     visible: false,
-    type: 'error' as 'success' | 'error',
+    type: 'error' as 'success' | 'error' | 'neutral',
     title: '',
     message: '',
     buttonText: 'Got It',
@@ -144,8 +139,14 @@ const UploadDayVideo = () => {
     });
   };
 
+  // ✅ INITIAL CONVERSATION TRIGGER
+  useEffect(() => {
+    const currentPrompt = CONVERSATION_STARTERS[promptIndex];
+    promptIndex = (promptIndex + 1) % CONVERSATION_STARTERS.length;
+    showPopup('success', 'Cal says:', currentPrompt, "Let's do it!");
+  }, []);
+
   const handleSelectedVideo = (asset: ImagePickerAsset) => {
-    console.log('Selected/Recorded Video Asset:', JSON.stringify(asset, null, 2));
     if (asset.duration && asset.duration > MAX_VIDEO_DURATION_MS) {
       const errorMessage = `Please select or record a video shorter than ${MAX_VIDEO_DURATION_SECONDS} seconds. This video is ${Math.round(
         asset.duration / 1000
@@ -173,6 +174,8 @@ const UploadDayVideo = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         quality: 0.7,
+        allowsEditing: true,
+        videoMaxDuration: MAX_VIDEO_DURATION_SECONDS,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         handleSelectedVideo(result.assets[0]);
@@ -198,6 +201,7 @@ const UploadDayVideo = () => {
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         quality: 0.7,
         videoMaxDuration: MAX_VIDEO_DURATION_SECONDS,
+        allowsEditing: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         handleSelectedVideo(result.assets[0]);
@@ -232,6 +236,7 @@ const UploadDayVideo = () => {
       return;
     }
 
+    // ✅ State update here triggers re-render, pausing video immediately
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -265,39 +270,27 @@ const UploadDayVideo = () => {
 
       formData.append('date', date);
 
-      const response = await uploadCalendarVideo(formData, (progressEvent) => {
+      await uploadCalendarVideo(formData, (progressEvent) => {
         if (progressEvent && progressEvent.total && progressEvent.total > 0) {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(Math.min(percentCompleted, 100));
         }
       });
 
-      const hasNearbyStories = response.data?.hasNearbyStories;
-
-      if (hasNearbyStories) {
-        showPopup(
-          'success',
-          'Success!',
-          'Your video is live! Check out other stories from your area.',
-          'View Stories',
-          () => router.push({ pathname: '/(app)/stories', params: { date } })
-        );
-      } else {
-        // Updated text to match the image exactly
-        showPopup(
-          'success',
-          'Success!',
-          'Nice! So far you are the only one looking in your area please check back via the calendar frequently for new story updates.',
-          'Great!',
-          () => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(app)/calendar');
-            }
+      // ✅ COPY & VISUALS FOR SUCCESS (Matches previous request)
+      showPopup(
+        'neutral', // Triggers Sad Face
+        "It's Quiet out here",
+        'So far you are the only one looking in your area please check back via the calendar frequently for new story updates.',
+        'Great!',
+        () => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(app)/calendar');
           }
-        );
-      }
+        }
+      );
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.message || error.message || 'Could not upload video.';
@@ -310,13 +303,20 @@ const UploadDayVideo = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <Image source={BACK_ARROW_ICON} style={styles.headerIcon} />
+        </TouchableOpacity>
+        <Image source={BRAND_LOGO} style={styles.headerLogo} />
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* ✅ UPDATED TITLE WITH ROTATING PROMPT */}
-          <Text style={styles.title}>{screenTitle}</Text>
           <Text style={styles.dateText}>
             For Date: {date ? format(parse(date, 'yyyy-MM-dd', new Date()), 'MMMM do, yyyy') : ''}
           </Text>
+
           <View style={styles.previewWrapper}>
             {videoAsset ? (
               <Video
@@ -324,6 +324,11 @@ const UploadDayVideo = () => {
                 source={{ uri: videoAsset.uri }}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls
+                isLooping
+                // ✅ CRITICAL FIX: Only play if NOT uploading.
+                shouldPlay={!isUploading}
+                // ✅ CRITICAL FIX: Mute audio if uploading.
+                isMuted={isUploading}
                 style={styles.videoPreview}
               />
             ) : (
@@ -335,6 +340,7 @@ const UploadDayVideo = () => {
               </View>
             )}
           </View>
+
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity
               style={[
@@ -359,6 +365,7 @@ const UploadDayVideo = () => {
               <Text style={styles.buttonText}>{videoAsset ? 'Change' : 'Upload'}</Text>
             </TouchableOpacity>
           </View>
+
           {videoAsset && (
             <TouchableOpacity
               style={[styles.button, styles.uploadButton, isUploading && styles.buttonDisabled]}
@@ -372,10 +379,11 @@ const UploadDayVideo = () => {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.buttonText}>Upload Now</Text>
+                <Text style={styles.buttonText}>Post Story</Text>
               )}
             </TouchableOpacity>
           )}
+
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
             onPress={() => router.back()}
@@ -384,6 +392,8 @@ const UploadDayVideo = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Reusable Animated Bubble Popup */}
       <BubblePopup
         visible={popupState.visible}
         type={popupState.type}
@@ -402,22 +412,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#2D2D2D',
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#2D2D2D',
+  },
+  headerButton: { padding: 5 },
+  headerIcon: { width: 28, height: 28, resizeMode: 'contain' },
+  headerLogo: { width: 100, height: 35, resizeMode: 'contain' },
   scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   container: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 10,
+  dateText: {
+    fontSize: 18,
+    color: '#E0E0E0',
+    marginBottom: 25,
     textAlign: 'center',
+    marginTop: 10,
   },
-  dateText: { fontSize: 18, color: '#E0E0E0', marginBottom: 25, textAlign: 'center' },
   previewWrapper: {
     width: '90%',
     aspectRatio: 16 / 9,
@@ -453,19 +473,19 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '85%',
+    width: '90%',
     marginBottom: 15,
   },
   actionButton: { flex: 1, marginHorizontal: 5, width: undefined },
   buttonText: { color: '#000000', fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
   recordButton: { backgroundColor: '#FF6B6B' },
   pickButton: { backgroundColor: '#3cd9d6' },
-  uploadButton: { backgroundColor: '#FFDB5C', width: '85%' },
+  uploadButton: { backgroundColor: '#FFDB5C', width: '90%' },
   cancelButton: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: '#777',
-    width: '85%',
+    width: '90%',
   },
   cancelButtonText: { color: '#CCC', fontSize: 16, fontWeight: 'bold' },
   buttonDisabled: { opacity: 0.6 },
@@ -476,6 +496,7 @@ const styles = StyleSheet.create({
   },
   uploadingText: { color: '#000000', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
 
+  // --- POPUP STYLES ---
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -492,14 +513,14 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     resizeMode: 'contain',
-    zIndex: 2, // Increased zIndex to be on top of tail
-    marginBottom: -85, // Pulls the bubble up closer to image
+    zIndex: 2,
+    marginBottom: -85,
   },
   bubble: {
     position: 'relative',
     borderRadius: 25,
     padding: 20,
-    paddingTop: 80, // Space for the image overlap
+    paddingTop: 80,
     width: '90%',
     alignItems: 'center',
     shadowColor: '#000',
@@ -509,22 +530,21 @@ const styles = StyleSheet.create({
     elevation: 10,
     zIndex: 1,
   },
-  // NEW STYLE: Speech Bubble Tail
   bubbleTail: {
     position: 'absolute',
-    top: -15, // Moves it above the bubble
+    top: -15,
     left: '50%',
-    marginLeft: -10, // Centers it (half of width)
+    marginLeft: -10,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
     borderLeftWidth: 10,
     borderRightWidth: 10,
-    borderBottomWidth: 20, // Height of the triangle
+    borderBottomWidth: 20,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF', // Same color as bubbleLight
+    borderBottomColor: '#FFFFFF',
   },
   bubbleLight: {
     backgroundColor: '#FFFFFF',
@@ -542,6 +562,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     lineHeight: 22,
     textAlign: 'center',
+    paddingHorizontal: 5,
   },
   popupButton: {
     borderRadius: 20,
@@ -550,10 +571,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorButton: {
-    backgroundColor: '#FFDB5C',
+    backgroundColor: '#FFDB5C', // Gold
   },
   successButton: {
-    backgroundColor: '#3cd9d6', // Teal color from image
+    backgroundColor: '#3cd9d6', // Teal
   },
   errorButtonText: {
     color: '#000000',

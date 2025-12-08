@@ -1,5 +1,6 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/attraction.tsx ---
-// ✅ CHANGE: "Why" Rotating Prompts added via BubblePopup on mount.
+// ✅ CHANGE 1: "Why" Rotating Prompts added via BubblePopup on mount.
+// ✅ CHANGE 2: Success Popup Text changed to "Awww Yeah" and "Let me relay this message..." per image request.
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -289,11 +290,14 @@ export default function AttractionScreen() {
         isUpdate: !!myExistingAttraction,
       });
       await refreshBalance();
-      const matchHappened = response.data.match === true;
-      const message = matchHappened
-        ? "I'll let you know if they feel the same"
-        : 'Your attraction has been sent!';
-      showPopup('Success!', message, 'success', () => router.replace('/(app)/calendar'));
+
+      // ✅ UPDATED: Fixed Success Message as per image request
+      showPopup(
+        'Awww Yeah',
+        'Let me relay this message and see if they feel the same.',
+        'success',
+        () => router.replace('/(app)/calendar')
+      );
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'An unexpected error occurred.';
       showPopup('Submission Failed', errorMessage, 'error');

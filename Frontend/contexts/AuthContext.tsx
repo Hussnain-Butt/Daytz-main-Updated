@@ -1,4 +1,5 @@
-// ✅ THIS CODE IS CORRECT AND REQUIRES NO CHANGES.
+// File: contexts/AuthContext.tsx
+// ✅ FINAL CODE: No extra parameters, standard Auth0 flow.
 
 import 'react-native-get-random-values';
 import React, {
@@ -11,7 +12,6 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { Platform } from 'react-native';
 import { getItemAsync, setItemAsync, deleteItemAsync } from 'expo-secure-store';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -31,13 +31,11 @@ interface SessionData {
   expiresAt: number;
 }
 
-// Environment variables
 const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
 const auth0ClientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
 const AUTH_SESSION_KEY = process.env.EXPO_PUBLIC_AUTH_SESSION_KEY;
 const apiAudience = process.env.EXPO_PUBLIC_API_AUDIENCE;
 
-// Validate required environment variables (skip in test environment)
 if (!process.env.NODE_ENV || process.env.NODE_ENV !== 'test') {
   if (!auth0Domain || !auth0ClientId || !AUTH_SESSION_KEY || !apiAudience) {
     throw new Error('Missing required environment variables. Please check your .env file.');
@@ -45,14 +43,12 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV !== 'test') {
 }
 
 const getApiBaseUrl = (): string => {
-  // Using production URL from Railway.app
   const envApiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (!envApiUrl && (!process.env.NODE_ENV || process.env.NODE_ENV !== 'test')) {
     throw new Error(
       'Missing EXPO_PUBLIC_API_BASE_URL environment variable. Please check your .env file.'
     );
   }
-  // Return test URL for test environment
   return envApiUrl || 'https://test-api.com';
 };
 const API_BASE_URL = getApiBaseUrl();
@@ -64,9 +60,10 @@ interface AuthContextData {
   auth0User: any | null;
   isReady: boolean;
   isLoading: boolean;
-  login: () => Promise<void>;
+  login: () => Promise<void>; // ✅ CLEAN: No arguments needed
   logout: () => Promise<void>;
 }
+
 const AuthContext = createContext<AuthContextData>({
   auth0User: null,
   isReady: false,

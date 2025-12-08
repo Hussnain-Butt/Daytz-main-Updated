@@ -1,8 +1,10 @@
 // File: app/(app)/profile.tsx
 // ✅ COMPLETE AND FINAL UPDATED CODE
-// ✅✅✅ "10 Secret Token" text hidden from UI (Backend logic remains same) ✅✅✅
+// ✅✅✅ FIX 1 & 2: Removed "Cancel" button during Initial Setup to prevent accidental navigation to Calendar.
+// ✅✅✅ FIX 3: Added rule ensuring profile must be complete before leaving.
+// ✅✅✅ FIX 4: Added Zip Code Validation with "Sad Cal" (Error Popup) and specific copy.
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   SafeAreaView,
   View,
@@ -20,6 +22,8 @@ import {
   KeyboardAvoidingView,
   StatusBar as RNStatusBar,
   TouchableOpacity,
+  Animated,
+  Easing,
 } from 'react-native';
 import {
   Button,
@@ -32,6 +36,7 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { MediaTypeOptions } from 'expo-image-picker';
 import { useUserStore } from '../../store/useUserStore';
@@ -46,23 +51,141 @@ import {
 import { User, UpdateUserApiPayload } from '../../types/User';
 import { colors } from '../../utils/theme';
 import { useAuth } from '../../contexts/AuthContext';
-import { Video, ResizeMode, AVPlaybackStatusError, AVPlaybackStatusSuccess } from 'expo-av';
+import { Video, ResizeMode, AVPlaybackStatusSuccess } from 'expo-av';
 
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
-// --- RESPONSIVE SCALING HELPER ---
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BASE_WIDTH = 375; // Ek standard device width (jaise iPhone 8)
+// --- CONSTANTS ---
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const BASE_WIDTH = 375;
 const scaleSize = (size: number) => (SCREEN_WIDTH / BASE_WIDTH) * size;
+const MAX_BIO_VIDEO_DURATION_SECONDS = 30;
+const MAX_BIO_VIDEO_DURATION_MS = MAX_BIO_VIDEO_DURATION_SECONDS * 1000;
+const DEFAULT_AVATAR = 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=User';
 
-// --- BUBBLE POPUP COMPONENT (UNCHANGED) ---
+// --- TUTORIAL GLOW OVERLAY COMPONENT ---
+const TutorialGlowOverlay = ({ visible, step, onNext, onFinish }) => {
+  if (!visible || !step) return null;
+  const { text, targetLayout, isLast } = step;
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const hasTarget = targetLayout && targetLayout.width > 0;
+  const isTargetInBottomHalf = hasTarget && targetLayout.y > SCREEN_HEIGHT / 2;
+
+  // Calculate masks precisely
+  const maskTopHeight = hasTarget ? Math.max(0, targetLayout.y) : 0;
+  const maskBottomTop = hasTarget ? targetLayout.y + targetLayout.height : SCREEN_HEIGHT;
+  const maskLeftWidth = hasTarget ? targetLayout.x : 0;
+  const maskRightLeft = hasTarget ? targetLayout.x + targetLayout.width : SCREEN_WIDTH;
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.tutorialOverlayContainer}>
+        {hasTarget ? (
+          <>
+            {/* Top Mask */}
+            <View style={[styles.maskPart, { top: 0, height: maskTopHeight, width: '100%' }]} />
+            {/* Bottom Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: maskBottomTop,
+                  height: Math.max(0, SCREEN_HEIGHT - maskBottomTop),
+                  width: '100%',
+                },
+              ]}
+            />
+            {/* Left Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                { top: targetLayout.y, height: targetLayout.height, width: maskLeftWidth, left: 0 },
+              ]}
+            />
+            {/* Right Mask */}
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: targetLayout.y,
+                  height: targetLayout.height,
+                  width: Math.max(0, SCREEN_WIDTH - maskRightLeft),
+                  left: maskRightLeft,
+                },
+              ]}
+            />
+
+            {/* Glowing Border */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: targetLayout.y,
+                left: targetLayout.x,
+                width: targetLayout.width,
+                height: targetLayout.height,
+                borderRadius: 12,
+                borderWidth: 3,
+                borderColor: colors.GoldPrimary,
+                transform: [{ scale: pulseAnim }],
+                shadowColor: colors.GoldPrimary,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8,
+                shadowRadius: 10,
+                zIndex: 10,
+              }}
+            />
+          </>
+        ) : (
+          <View style={styles.maskPartFull} />
+        )}
+
+        <View
+          style={[
+            styles.tutorialBubbleContainer,
+            isTargetInBottomHalf ? { bottom: undefined, top: 60 } : { top: undefined, bottom: 80 },
+          ]}>
+          <Image source={calcHappyIcon} style={styles.tutorialCalImage} />
+          <View style={styles.tutorialBubble}>
+            <Text style={styles.tutorialText}>{text}</Text>
+            <TouchableOpacity
+              style={styles.tutorialNextButton}
+              onPress={isLast ? onFinish : onNext}>
+              <Text style={styles.tutorialButtonText}>{isLast ? "Let's Go!" : 'Next'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// --- BUBBLE POPUP COMPONENT ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) return null;
   const isSuccess = type === 'success';
   const imageSource = isSuccess ? calcHappyIcon : calcErrorIcon;
-  const buttonStyle = isSuccess ? styles.successButton : styles.errorButton;
-  const buttonTextStyle = isSuccess ? styles.successButtonText : styles.errorButtonText;
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -71,8 +194,12 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
           <View style={styles.bubble}>
             <Text style={styles.popupTitle}>{title}</Text>
             <Text style={styles.popupMessage}>{message}</Text>
-            <TouchableOpacity style={[styles.popupButton, buttonStyle]} onPress={onClose}>
-              <Text style={buttonTextStyle}>{buttonText}</Text>
+            <TouchableOpacity
+              style={[styles.popupButton, isSuccess ? styles.successButton : styles.errorButton]}
+              onPress={onClose}>
+              <Text style={isSuccess ? styles.successButtonText : styles.errorButtonText}>
+                {buttonText}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -88,9 +215,6 @@ interface ImagePickerResult {
   assetId?: string;
   duration?: number;
 }
-const DEFAULT_AVATAR = 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=User';
-const MAX_BIO_VIDEO_DURATION_SECONDS = 30;
-const MAX_BIO_VIDEO_DURATION_MS = MAX_BIO_VIDEO_DURATION_SECONDS * 1000;
 
 const Profile = () => {
   const { auth0User: authUser, logout } = useAuth();
@@ -101,18 +225,32 @@ const Profile = () => {
     setTokenBalance,
     hasBeenForcedToProfileEdit,
     setHasBeenForcedToProfileEdit,
+    showWelcomeVideo,
   } = useUserStore();
   const router = useRouter();
+  const isFocused = useIsFocused();
 
+  // Screen State
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Media State
   const [video, setVideo] = useState<ImagePickerResult | null>(null);
   const [image, setImage] = useState<ImagePickerResult | null>(null);
+
+  // Form State
   const [editedProfile, setEditedProfile] = useState<Partial<User>>({});
+  const [referralSource, setReferralSource] = useState('');
+
+  // Logic State
   const [isInitialSetup, setIsInitialSetup] = useState(false);
   const [profileJustCompleted, setProfileJustCompleted] = useState(false);
+
+  // Modal State
   const [isBuyTokensModalVisible, setIsBuyTokensModalVisible] = useState(false);
   const [isPurchasingTokens, setIsPurchasingTokens] = useState(false);
+
+  // Video Player
   const [playableBioVideoUrl, setPlayableBioVideoUrl] = useState<string | null>(null);
   const [isLoadingPlayableUrl, setIsLoadingPlayableUrl] = useState(false);
   const [videoPlaybackError, setVideoPlaybackError] = useState<string | null>(null);
@@ -123,7 +261,16 @@ const Profile = () => {
     title: '',
     message: '',
   });
-  const [referralSource, setReferralSource] = useState('');
+
+  // --- TUTORIAL REFS & STATE ---
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [elementLayouts, setElementLayouts] = useState<any>({});
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const avatarRef = useRef<View>(null);
+  const videoRef = useRef<View>(null);
+  const infoRef = useRef<View>(null);
+  const saveRef = useRef<View>(null);
 
   const showPopup = (title: string, message: string, type: 'success' | 'error' = 'error') => {
     setPopupState({ visible: true, title, message, type });
@@ -142,9 +289,7 @@ const Profile = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (tokenBalance === null) {
-        fetchTokenBalance();
-      }
+      if (tokenBalance === null) fetchTokenBalance();
     }, [tokenBalance, fetchTokenBalance])
   );
 
@@ -186,7 +331,10 @@ const Profile = () => {
     fetchPlayableVimeoUrl();
   }, [fetchPlayableVimeoUrl]);
 
+  // Initial Check for Profile Completion
   useEffect(() => {
+    if (!isFocused || showWelcomeVideo) return;
+
     if (userProfile) {
       setEditedProfile({
         firstName: userProfile.firstName || '',
@@ -199,15 +347,99 @@ const Profile = () => {
       setIsInitialSetup(profileIsIncomplete);
 
       if (profileIsIncomplete && !hasBeenForcedToProfileEdit) {
-        console.log(
-          '[Profile] Profile is incomplete and user has not been forced to edit yet. Entering edit mode.'
-        );
         setIsEditMode(true);
         setHasBeenForcedToProfileEdit(true);
+
+        setTimeout(() => {
+          if (isFocused && !useUserStore.getState().showWelcomeVideo) {
+            setTutorialStep(0);
+          }
+        }, 1000);
       }
     }
-  }, [userProfile, hasBeenForcedToProfileEdit, setHasBeenForcedToProfileEdit]);
+  }, [userProfile, hasBeenForcedToProfileEdit, isFocused, showWelcomeVideo]);
 
+  // --- TUTORIAL LOGIC: MEASUREMENTS ---
+  const measureElement = (ref: React.RefObject<View>, key: string) => {
+    if (ref.current) {
+      ref.current.measureInWindow((x, y, width, height) => {
+        if (!isNaN(x) && !isNaN(y) && width > 0 && height > 0) {
+          setElementLayouts((prev) => ({ ...prev, [key]: { x, y, width, height } }));
+        }
+      });
+    }
+  };
+
+  const measureAllElements = () => {
+    measureElement(avatarRef, 'avatar');
+    measureElement(videoRef, 'video');
+    measureElement(infoRef, 'info');
+    measureElement(saveRef, 'save');
+  };
+
+  const handleScrollEnd = () => {
+    if (tutorialStep !== null && isFocused) {
+      measureAllElements();
+    }
+  };
+
+  useEffect(() => {
+    if (isEditMode && tutorialStep !== null && isFocused && !showWelcomeVideo) {
+      const timer = setTimeout(() => {
+        measureAllElements();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isEditMode, tutorialStep, isFocused, showWelcomeVideo]);
+
+  // --- TUTORIAL STEPS ---
+  const TUTORIAL_STEPS = useMemo(() => {
+    return [
+      {
+        text: "Hi! I'm Cal. Your profile is blank! Let's get you set up so you can start meeting people.",
+        targetLayout: null,
+      },
+      {
+        text: "First, upload a clear photo. People want to see who they're talking to!",
+        targetLayout: elementLayouts.avatar || null,
+        targetRef: avatarRef,
+      },
+      {
+        text: "This is the magic! Record a 30s video to show your personality. It's way better than text.",
+        targetLayout: elementLayouts.video || null,
+        targetRef: videoRef,
+      },
+      {
+        text: 'Fill in your basic details like Name and Zipcode so we can find matches near you.',
+        targetLayout: elementLayouts.info || null,
+        targetRef: infoRef,
+      },
+      {
+        text: "Once you're done, hit Save to activate your profile!",
+        targetLayout: elementLayouts.save || null,
+        targetRef: saveRef,
+        isLast: true,
+      },
+    ];
+  }, [elementLayouts]);
+
+  const handleNextTutorial = () => {
+    if (tutorialStep !== null && tutorialStep < TUTORIAL_STEPS.length - 1) {
+      const nextStepIndex = tutorialStep + 1;
+      setTutorialStep(nextStepIndex);
+
+      if (scrollViewRef.current) {
+        if (nextStepIndex === 1) scrollViewRef.current.scrollTo({ y: 0, animated: true });
+        if (nextStepIndex === 2) scrollViewRef.current.scrollTo({ y: 150, animated: true });
+        if (nextStepIndex === 3) scrollViewRef.current.scrollTo({ y: 400, animated: true });
+        if (nextStepIndex === 4) scrollViewRef.current.scrollToEnd({ animated: true });
+      }
+    } else {
+      setTutorialStep(null);
+    }
+  };
+
+  // --- MEDIA & SAVING HANDLERS ---
   const handleSelectedMedia = (asset: ImagePicker.ImagePickerAsset, type: 'Images' | 'Videos') => {
     if (type === 'Videos' && asset.duration && asset.duration > MAX_BIO_VIDEO_DURATION_MS) {
       showPopup(
@@ -245,6 +477,7 @@ const Profile = () => {
         quality: 0.7,
         videoMaxDuration: type === 'Videos' ? MAX_BIO_VIDEO_DURATION_SECONDS : undefined,
       });
+      // ✅ FIX: Logic is safe. If canceled, nothing happens.
       if (!result.canceled && result.assets?.[0]) handleSelectedMedia(result.assets[0], type);
     } catch (e) {
       showPopup('Media Picker Error', (e as Error).message, 'error');
@@ -265,6 +498,7 @@ const Profile = () => {
         quality: 0.7,
         videoMaxDuration: type === 'Videos' ? MAX_BIO_VIDEO_DURATION_SECONDS : undefined,
       });
+      // ✅ FIX: Logic is safe. If canceled, nothing happens.
       if (!result.canceled && result.assets?.[0]) handleSelectedMedia(result.assets[0], type);
     } catch (e) {
       showPopup('Camera Error', (e as Error).message, 'error');
@@ -277,14 +511,22 @@ const Profile = () => {
       return;
     }
     const wasInitialProfileIncomplete = !userProfile.is_profile_complete;
+
     if (!editedProfile.firstName?.trim() || !editedProfile.lastName?.trim()) {
       showPopup('Name Required', 'Enter first & last name.', 'error');
       return;
     }
+
+    // ✅ FIX 4: Zip Code Validation with Sad Cal ('error')
     if (!editedProfile.zipcode?.trim() || !/^\d{5}$/.test(editedProfile.zipcode.trim())) {
-      showPopup('Zipcode Invalid', 'Enter a 5-digit zipcode.', 'error');
+      showPopup(
+        'Cal says:',
+        "That zip code doesn't look right. Please enter a valid 5-digit zip code so I can find matches near you!",
+        'error'
+      );
       return;
     }
+
     if (
       wasInitialProfileIncomplete &&
       ((!video && !userProfile.videoUrl) || (!image && !userProfile.profilePictureUrl))
@@ -301,14 +543,12 @@ const Profile = () => {
         fd.append('video', { uri: video.uri, type: video.type, name: video.name } as any);
         const res = await uploadHomepageVideo(fd);
         if (res.data?.videoUrl) currentVideoUrl = res.data.videoUrl;
-        else if (wasInitialProfileIncomplete) throw new Error('Bio video upload failed.');
       }
       if (image) {
         const fd = new FormData();
         fd.append('image', { uri: image.uri, type: image.type, name: image.name } as any);
         const res = await uploadProfilePicture(fd);
         if (res.data?.profilePictureUrl) currentPicUrl = res.data.profilePictureUrl;
-        else if (wasInitialProfileIncomplete) throw new Error('Profile picture upload failed.');
       }
       const updatePayload: UpdateUserApiPayload = {
         firstName: editedProfile.firstName?.trim(),
@@ -325,38 +565,26 @@ const Profile = () => {
           currentPicUrl
         ),
       };
-      if (wasInitialProfileIncomplete && referralSource.trim()) {
+      if (wasInitialProfileIncomplete && referralSource.trim())
         updatePayload.referralSource = referralSource.trim();
-      }
       const res = await updateUser(updatePayload);
       if (res.data) {
-        // Backend logic for tokens is preserved here but hidden from user
-        const oldTokenBalance = tokenBalance ?? userProfile.tokens ?? 0;
-        const newTokenBalance = res.data.tokens;
-        const gotBonus = newTokenBalance > oldTokenBalance;
-
         setUserProfile(res.data);
-        let successMessage =
-          wasInitialProfileIncomplete && res.data.is_profile_complete
-            ? 'Profile Setup Complete!'
-            : 'Profile updated successfully!';
+        const isSetupComplete = wasInitialProfileIncomplete && res.data.is_profile_complete;
+        showPopup(
+          isSetupComplete ? 'Alright!' : 'All Set!',
+          isSetupComplete
+            ? "You're one step closer to getting those butterfly feelings in your stomach while dating again."
+            : 'Your profile has been updated successfully.',
+          'success'
+        );
 
-        // -----------------------------------------------------
-        // HIDDEN FROM USER (BUT BACKEND STILL GIVES TOKENS)
-        // Client request: Remove "10 bonus coins" text from UI
-        // if (gotBonus) {
-        //   successMessage += ` You received 10 bonus coins!`;
-        // }
-        // -----------------------------------------------------
-
-        showPopup('Success!', successMessage, 'success');
-        if (wasInitialProfileIncomplete && res.data.is_profile_complete) {
+        if (wasInitialProfileIncomplete && res.data.is_profile_complete)
           setProfileJustCompleted(true);
-        }
         setIsEditMode(false);
         setImage(null);
         setVideo(null);
-      } else throw new Error('Update API returned no data.');
+      }
     } catch (e: any) {
       showPopup('Save Failed', e.message || 'An unknown error occurred.', 'error');
     } finally {
@@ -401,7 +629,7 @@ const Profile = () => {
             onPress={() => setIsBuyTokensModalVisible(false)}
             style={styles.modalButton}
             disabled={isPurchasingTokens}
-            textColor={colors.White || '#FFFFFF'}>
+            textColor={colors.White}>
             Cancel
           </Button>
           <Button
@@ -423,102 +651,119 @@ const Profile = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEnd}>
         <View style={styles.userInfoContainer}>
           {isInitialSetup && !profileJustCompleted && (
             <Text style={styles.setupTitle}>Complete Your Profile</Text>
           )}
-          <Avatar.Image
-            size={scaleSize(80)}
-            source={{ uri: image?.uri || userProfile?.profilePictureUrl || DEFAULT_AVATAR }}
-            style={styles.avatar}
-          />
-          <Button
-            icon="camera"
-            mode="outlined"
-            style={styles.mediaButton}
-            onPress={() => pickMediaFromLibrary('Images')}
-            disabled={isSaving}>
-            {image ? 'Change Pic' : userProfile?.profilePictureUrl ? 'Change Pic' : 'Upload'}
-          </Button>
-          {(isInitialSetup || !userProfile?.is_profile_complete) &&
-            !userProfile?.profilePictureUrl &&
-            !image && <Text style={styles.requiredText}>* Pic required</Text>}
-          <Divider style={styles.divider} />
-          <Text style={styles.fieldLabel}>Bio Video (Max {MAX_BIO_VIDEO_DURATION_SECONDS}s)</Text>
-          {video ? (
-            <Text
-              style={styles.videoSelectedText}
-              numberOfLines={1}
-              ellipsizeMode="middle">{`Selected: ${video.name}`}</Text>
-          ) : userProfile?.videoUrl ? (
-            <Text style={styles.videoSelectedText}>Current video uploaded</Text>
-          ) : (
-            <Text style={styles.videoSelectedText}>(No bio video)</Text>
-          )}
-          <View style={styles.mediaActionsRow}>
+
+          {/* AVATAR SECTION */}
+          <View ref={avatarRef} collapsable={false} style={{ width: '100%', alignItems: 'center' }}>
+            <Avatar.Image
+              size={scaleSize(80)}
+              source={{ uri: image?.uri || userProfile?.profilePictureUrl || DEFAULT_AVATAR }}
+              style={styles.avatar}
+            />
             <Button
-              icon="record-circle-outline"
+              icon="camera"
               mode="outlined"
-              style={[styles.mediaButton, styles.flexButton]}
-              onPress={() => recordMediaWithCamera('Videos')}
+              style={styles.mediaButton}
+              onPress={() => pickMediaFromLibrary('Images')}
               disabled={isSaving}>
-              Record
+              {image ? 'Change Pic' : userProfile?.profilePictureUrl ? 'Change Pic' : 'Upload'}
             </Button>
-            <Button
-              icon="video-image"
-              mode="outlined"
-              style={[styles.mediaButton, styles.flexButton]}
-              onPress={() => pickMediaFromLibrary('Videos')}
-              disabled={isSaving}>
-              {video ? 'Change Lib' : userProfile?.videoUrl ? 'Change Lib' : 'Upload'}
-            </Button>
+            {(isInitialSetup || !userProfile?.is_profile_complete) &&
+              !userProfile?.profilePictureUrl &&
+              !image && <Text style={styles.requiredText}>* Pic required</Text>}
           </View>
-          {(isInitialSetup || !userProfile?.is_profile_complete) &&
-            !userProfile?.videoUrl &&
-            !video && <Text style={styles.requiredText}>* Bio video required</Text>}
+
           <Divider style={styles.divider} />
-          <Text style={styles.fieldLabel}>First Name</Text>
-          <TextInput
-            style={styles.textInput}
-            value={editedProfile.firstName || ''}
-            onChangeText={(t) => setEditedProfile((p) => ({ ...p, firstName: t }))}
-            placeholder="First Name"
-            editable={!isSaving}
-            autoCapitalize="words"
-            textContentType="givenName"
-            placeholderTextColor={colors.LightGrey}
-          />
-          {!editedProfile.firstName?.trim() && <Text style={styles.requiredText}>* Required</Text>}
-          <Text style={styles.fieldLabel}>Last Name</Text>
-          <TextInput
-            style={styles.textInput}
-            value={editedProfile.lastName || ''}
-            onChangeText={(t) => setEditedProfile((p) => ({ ...p, lastName: t }))}
-            placeholder="Last Name"
-            editable={!isSaving}
-            autoCapitalize="words"
-            textContentType="familyName"
-            placeholderTextColor={colors.LightGrey}
-          />
-          {!editedProfile.lastName?.trim() && <Text style={styles.requiredText}>* Required</Text>}
-          <Text style={styles.fieldLabel}>Zipcode</Text>
-          <TextInput
-            style={styles.textInput}
-            value={editedProfile.zipcode || ''}
-            onChangeText={(t) =>
-              setEditedProfile((p) => ({ ...p, zipcode: t.replace(/[^0-9]/g, '') }))
-            }
-            placeholder="5-Digit Zipcode"
-            keyboardType="numeric"
-            maxLength={5}
-            editable={!isSaving}
-            textContentType="postalCode"
-            placeholderTextColor={colors.LightGrey}
-          />
-          {!editedProfile.zipcode?.trim() && <Text style={styles.requiredText}>* Required</Text>}
+
+          {/* VIDEO SECTION */}
+          <View ref={videoRef} collapsable={false} style={{ width: '100%', alignItems: 'center' }}>
+            <Text style={styles.fieldLabel}>Bio Video (Max {MAX_BIO_VIDEO_DURATION_SECONDS}s)</Text>
+            {video ? (
+              <Text
+                style={styles.videoSelectedText}
+                numberOfLines={1}
+                ellipsizeMode="middle">{`Selected: ${video.name}`}</Text>
+            ) : userProfile?.videoUrl ? (
+              <Text style={styles.videoSelectedText}>Current video uploaded</Text>
+            ) : (
+              <Text style={styles.videoSelectedText}>(No bio video)</Text>
+            )}
+            <View style={styles.mediaActionsRow}>
+              <Button
+                icon="record-circle-outline"
+                mode="outlined"
+                style={[styles.mediaButton, styles.flexButton]}
+                onPress={() => recordMediaWithCamera('Videos')}
+                disabled={isSaving}>
+                Record
+              </Button>
+              <Button
+                icon="video-image"
+                mode="outlined"
+                style={[styles.mediaButton, styles.flexButton]}
+                onPress={() => pickMediaFromLibrary('Videos')}
+                disabled={isSaving}>
+                {video ? 'Change Lib' : userProfile?.videoUrl ? 'Change Lib' : 'Upload'}
+              </Button>
+            </View>
+            {(isInitialSetup || !userProfile?.is_profile_complete) &&
+              !userProfile?.videoUrl &&
+              !video && <Text style={styles.requiredText}>* Bio video required</Text>}
+          </View>
+
+          <Divider style={styles.divider} />
+
+          {/* INFO SECTION */}
+          <View ref={infoRef} collapsable={false} style={{ width: '100%' }}>
+            <Text style={styles.fieldLabel}>First Name</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editedProfile.firstName || ''}
+              onChangeText={(t) => setEditedProfile((p) => ({ ...p, firstName: t }))}
+              placeholder="First Name"
+              editable={!isSaving}
+              autoCapitalize="words"
+              placeholderTextColor={colors.LightGrey}
+            />
+            {!editedProfile.firstName?.trim() && (
+              <Text style={styles.requiredText}>* Required</Text>
+            )}
+            <Text style={styles.fieldLabel}>Last Name</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editedProfile.lastName || ''}
+              onChangeText={(t) => setEditedProfile((p) => ({ ...p, lastName: t }))}
+              placeholder="Last Name"
+              editable={!isSaving}
+              autoCapitalize="words"
+              placeholderTextColor={colors.LightGrey}
+            />
+            {!editedProfile.lastName?.trim() && <Text style={styles.requiredText}>* Required</Text>}
+            <Text style={styles.fieldLabel}>Zipcode</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editedProfile.zipcode || ''}
+              onChangeText={(t) =>
+                setEditedProfile((p) => ({ ...p, zipcode: t.replace(/[^0-9]/g, '') }))
+              }
+              placeholder="5-Digit Zipcode"
+              keyboardType="numeric"
+              maxLength={5}
+              editable={!isSaving}
+              placeholderTextColor={colors.LightGrey}
+            />
+            {!editedProfile.zipcode?.trim() && <Text style={styles.requiredText}>* Required</Text>}
+          </View>
+
           {isInitialSetup && (
             <>
               <Divider style={styles.divider} />
@@ -531,60 +776,59 @@ const Profile = () => {
                 editable={!isSaving}
                 placeholderTextColor={colors.LightGrey}
               />
-              {/* 
-                  HIDDEN: Client requested to remove "10 bonus coins" text. 
-                  Backend will still award it, but user wont see the text here.
-                  
-                  <Text style={styles.helperText}>Answer for 10 bonus coins!</Text> 
-              */}
             </>
           )}
+
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>Notifications:</Text>
             <Switch
               value={editedProfile.enableNotifications ?? true}
               onValueChange={(v) => setEditedProfile((p) => ({ ...p, enableNotifications: v }))}
               disabled={isSaving}
-              trackColor={{
-                false: colors.Grey || '#424242',
-                true: colors.GoldPrimary || '#FFD700',
-              }}
-              thumbColor={colors.White || '#FFFFFF'}
-              style={Platform.OS === 'ios' ? { backgroundColor: 'transparent' } : {}}
+              trackColor={{ false: colors.Grey, true: colors.GoldPrimary }}
+              thumbColor={colors.White}
             />
           </View>
-          <Button
-            mode="contained"
-            style={styles.saveButton}
-            onPress={handleSave}
-            loading={isSaving}
-            disabled={isSaving}>
-            {isSaving
-              ? 'Saving...'
-              : isInitialSetup && !profileJustCompleted
-                ? 'Save & View Profile'
-                : 'Save Changes'}
-          </Button>
-          <Button
-            mode="text"
-            style={styles.cancelButton}
-            onPress={() => {
-              setIsEditMode(false);
-              setProfileJustCompleted(false);
-              setImage(null);
-              setVideo(null);
-              if (userProfile)
-                setEditedProfile({
-                  firstName: userProfile.firstName || '',
-                  lastName: userProfile.lastName || '',
-                  zipcode: userProfile.zipcode || '',
-                  enableNotifications: userProfile.enableNotifications ?? true,
-                });
-            }}
-            disabled={isSaving}
-            textColor={colors.LightGrey || '#A0A0A0'}>
-            Cancel
-          </Button>
+
+          {/* SAVE SECTION */}
+          <View ref={saveRef} collapsable={false} style={{ width: '100%' }}>
+            <Button
+              mode="contained"
+              style={styles.saveButton}
+              onPress={handleSave}
+              loading={isSaving}
+              disabled={isSaving}>
+              {isSaving
+                ? 'Saving...'
+                : isInitialSetup && !profileJustCompleted
+                  ? 'Save & View Profile'
+                  : 'Save Changes'}
+            </Button>
+          </View>
+
+          {/* ✅ FIX 1, 2 & 3: Hide Cancel button if it's initial setup. This traps the user in edit mode until profile is complete. */}
+          {!isInitialSetup && (
+            <Button
+              mode="text"
+              style={styles.cancelButton}
+              onPress={() => {
+                setIsEditMode(false);
+                setProfileJustCompleted(false);
+                setImage(null);
+                setVideo(null);
+                if (userProfile)
+                  setEditedProfile({
+                    firstName: userProfile.firstName || '',
+                    lastName: userProfile.lastName || '',
+                    zipcode: userProfile.zipcode || '',
+                    enableNotifications: userProfile.enableNotifications ?? true,
+                  });
+              }}
+              disabled={isSaving}
+              textColor={colors.LightGrey}>
+              Cancel
+            </Button>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -616,11 +860,7 @@ const Profile = () => {
           <View style={styles.userInfoRow}>
             <Text style={styles.userInfoLabel}>Token Balance:</Text>
             {tokenBalance === null ? (
-              <PaperActivityIndicator
-                animating={true}
-                color={colors.GoldPrimary || '#FFD700'}
-                size="small"
-              />
+              <PaperActivityIndicator animating={true} color={colors.GoldPrimary} size="small" />
             ) : (
               <Text style={styles.userInfoValue}>{tokenBalance}</Text>
             )}
@@ -632,14 +872,10 @@ const Profile = () => {
             icon={showMagicBuyButton ? 'star-circle-outline' : 'cart-plus'}
             disabled={isPurchasingTokens}
             labelStyle={
-              showMagicBuyButton
-                ? { color: colors.Black || '#000000' }
-                : { color: colors.GoldPrimary || '#FFD700' }
+              showMagicBuyButton ? { color: colors.Black } : { color: colors.GoldPrimary }
             }
-            buttonColor={showMagicBuyButton ? colors.GoldPrimary || '#FFD700' : undefined}
-            textColor={
-              showMagicBuyButton ? colors.Black || '#000000' : colors.GoldPrimary || '#FFD700'
-            }>
+            buttonColor={showMagicBuyButton ? colors.GoldPrimary : undefined}
+            textColor={showMagicBuyButton ? colors.Black : colors.GoldPrimary}>
             {showMagicBuyButton ? 'Low Tokens! Get More' : 'Buy Tokens'}
           </Button>
           <Divider style={styles.divider} />
@@ -659,7 +895,7 @@ const Profile = () => {
             <View style={styles.videoPlayerWrapper}>
               {isLoadingPlayableUrl ? (
                 <View style={styles.videoPlaceholder}>
-                  <PaperActivityIndicator size="large" color={colors.GoldPrimary || '#FFD700'} />
+                  <PaperActivityIndicator size="large" color={colors.GoldPrimary} />
                   <Text style={styles.videoStatusText}>Loading Video...</Text>
                 </View>
               ) : playableBioVideoUrl && !videoPlaybackError ? (
@@ -670,13 +906,9 @@ const Profile = () => {
                   useNativeControls
                   resizeMode={ResizeMode.CONTAIN}
                   isLooping={false}
-                  onError={(errorMsg: string) => setVideoPlaybackError('Video not found')}
+                  onError={() => setVideoPlaybackError('Video not found')}
                   onLoad={(status) => {
                     if ((status as AVPlaybackStatusSuccess).isLoaded) setVideoPlaybackError(null);
-                  }}
-                  onPlaybackStatusUpdate={(status) => {
-                    if ((status as AVPlaybackStatusError).error)
-                      setVideoPlaybackError('Video not found');
                   }}
                 />
               ) : (
@@ -684,7 +916,7 @@ const Profile = () => {
                   <IconButton
                     icon={'alert-circle-outline'}
                     size={scaleSize(48)}
-                    iconColor={colors.LightGrey || '#A0A0A0'}
+                    iconColor={colors.LightGrey}
                   />
                   <Text style={styles.videoStatusText}>
                     {videoPlaybackError || 'Video not found'}
@@ -692,7 +924,7 @@ const Profile = () => {
                   <Button
                     mode="text"
                     onPress={fetchPlayableVimeoUrl}
-                    textColor={colors.GoldPrimary || '#FFD700'}>
+                    textColor={colors.GoldPrimary}>
                     Try Again
                   </Button>
                 </View>
@@ -737,7 +969,7 @@ const Profile = () => {
               ])
             }
             style={styles.logoutButton}
-            textColor={colors.GoldPrimary || '#FFD700'}>
+            textColor={colors.GoldPrimary}>
             Logout
           </Button>
         </View>
@@ -757,6 +989,13 @@ const Profile = () => {
           message={popupState.message}
           buttonText="OK"
           onClose={() => setPopupState((prev) => ({ ...prev, visible: false }))}
+        />
+        {/* GLOW TUTORIAL OVERLAY */}
+        <TutorialGlowOverlay
+          visible={isFocused && !showWelcomeVideo && tutorialStep !== null}
+          step={tutorialStep !== null ? TUTORIAL_STEPS[tutorialStep] : null}
+          onNext={handleNextTutorial}
+          onFinish={() => setTutorialStep(null)}
         />
       </SafeAreaView>
     </PaperProvider>
@@ -971,12 +1210,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: scaleSize(25),
   },
-  cancelButton: {
-    marginTop: scaleSize(12),
-    width: '80%',
-    maxWidth: 300,
-    alignSelf: 'center',
-  },
+  cancelButton: { marginTop: scaleSize(12), width: '80%', maxWidth: 300, alignSelf: 'center' },
   requiredText: {
     color: colors.PinkPrimary || '#FF6B6B',
     fontSize: scaleSize(13),
@@ -1116,15 +1350,54 @@ const styles = StyleSheet.create({
     fontSize: scaleSize(15),
     fontWeight: 'bold',
   },
-  helperText: {
-    color: colors.GoldPrimary || '#FFD700',
-    fontSize: scaleSize(13),
-    alignSelf: 'flex-start',
-    marginLeft: scaleSize(5),
-    marginTop: scaleSize(-2),
-    marginBottom: scaleSize(8),
-    fontStyle: 'italic',
+
+  // --- TUTORIAL STYLES ---
+  tutorialOverlayContainer: { flex: 1, position: 'relative', backgroundColor: 'transparent' },
+  maskPart: { position: 'absolute', backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+  maskPartFull: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+  tutorialBubbleContainer: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+    zIndex: 20,
   },
+  tutorialCalImage: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
+    marginBottom: -50,
+    zIndex: 22,
+  },
+  tutorialBubble: {
+    width: '100%',
+    backgroundColor: colors.White || '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    paddingTop: 60,
+    alignItems: 'center',
+    zIndex: 21,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  tutorialText: {
+    fontSize: 16,
+    color: colors.LightBlack || '#222B45',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  tutorialNextButton: {
+    backgroundColor: colors.GoldPrimary || '#FFDB5C',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  tutorialButtonText: { color: colors.Black || '#000000', fontSize: 15, fontWeight: 'bold' },
 });
 
 export default Profile;

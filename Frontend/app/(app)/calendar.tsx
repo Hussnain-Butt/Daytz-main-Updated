@@ -1,5 +1,9 @@
-// --- COMPLETE FINAL UPDATED CODE: app/(app)/index.tsx (Calendar) ---
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+// File: app/(app)/index.tsx
+// ✅ COMPLETE AND FINAL UPDATED CODE
+// ✅✅✅ FIXED: Changed "where" to "when" in Cal's prompt as per the image requirement ✅✅✅
+// ✅✅✅ NOTE: Restored the Wingman Prompt logic with the text correction.
+
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   SafeAreaView,
   View,
@@ -15,6 +19,8 @@ import {
   TextInput,
   Alert,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import VideoCalendar from '../../components/calendar';
@@ -40,9 +46,13 @@ const LOGO_IMAGE = require('../../assets/brand.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
 
-// --- CAL'S ROTATING PROMPTS (Giving Cal Life) ---
+// --- CONSTANTS ---
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// --- CAL'S ROTATING PROMPTS ---
+// ✅ FIXED: Changed "where" to "when" in the first prompt
 const WHEN_PROMPTS = [
-  'Hey hey, so first I need to know where you want to plan this meetup?',
+  'Hey hey, so first I need to know when you want to plan this meetup?', // <--- CHANGED FROM "where" TO "when"
   "When should I tell them you're free?",
   "Pick a date, and I'll handle the rest.",
   'Lock in a day to meet someone new.',
@@ -67,6 +77,149 @@ const buildLocalDateTime = (dateStr?: string | null, timeStr?: string | null): D
   if (isNaN(h) || isNaN(m)) return base;
   base.setHours(h, m, 0, 0);
   return base;
+};
+
+// --- TUTORIAL GLOW COMPONENT ---
+const TutorialGlowOverlay = ({ visible, step, onNext, onFinish }) => {
+  if (!visible || !step) return null;
+  const { text, targetLayout, isLast } = step;
+
+  // Animation Values
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const hasTarget = targetLayout && targetLayout.width > 0;
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.tutorialOverlayContainer}>
+        {hasTarget ? (
+          <>
+            {/* Masks to darken area around the highlight */}
+            <View
+              style={[
+                styles.maskPart,
+                { top: 0, height: Math.max(0, targetLayout.y), width: '100%' },
+              ]}
+            />
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: targetLayout.y + targetLayout.height,
+                  height: Math.max(0, SCREEN_HEIGHT - (targetLayout.y + targetLayout.height)),
+                  width: '100%',
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: targetLayout.y,
+                  height: targetLayout.height,
+                  width: targetLayout.x,
+                  left: 0,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.maskPart,
+                {
+                  top: targetLayout.y,
+                  height: targetLayout.height,
+                  width: Math.max(0, SCREEN_WIDTH - (targetLayout.x + targetLayout.width)),
+                  left: targetLayout.x + targetLayout.width,
+                },
+              ]}
+            />
+
+            {/* The GLOW Border */}
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: targetLayout.y,
+                left: targetLayout.x,
+                width: targetLayout.width,
+                height: targetLayout.height,
+                borderRadius: 20, // Increased radius for better circle look on icons
+                borderWidth: 3,
+                borderColor: colors.GoldPrimary,
+                transform: [{ scale: pulseAnim }],
+                shadowColor: colors.GoldPrimary,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8,
+                shadowRadius: 10,
+                zIndex: 10,
+              }}
+            />
+          </>
+        ) : (
+          <View style={styles.maskPartFull} />
+        )}
+
+        {/* Cal Bubble */}
+        <View
+          style={[
+            styles.tutorialBubbleContainer,
+            hasTarget && targetLayout.y > SCREEN_HEIGHT / 2
+              ? { bottom: undefined, top: 80 }
+              : { bottom: 80 },
+          ]}>
+          <Image source={calcHappyIcon} style={styles.tutorialCalImage} />
+          <View style={styles.tutorialBubble}>
+            <Text style={styles.tutorialText}>{text}</Text>
+            <TouchableOpacity
+              style={styles.tutorialNextButton}
+              onPress={isLast ? onFinish : onNext}>
+              <Text style={styles.tutorialButtonText}>{isLast ? 'Got it!' : 'Next'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// --- DUMMY DATE FOR TUTORIAL ---
+const DEMO_DATE: UpcomingDate = {
+  dateId: 99999,
+  userFrom: 'demo',
+  userTo: 'demo',
+  date: format(new Date(), 'yyyy-MM-dd'),
+  time: '19:00:00',
+  status: 'approved',
+  romanticRating: 3,
+  sexualRating: 0,
+  friendshipRating: 0,
+  otherUser: {
+    userId: 'demo_partner',
+    firstName: 'Sarah',
+    lastName: 'Example',
+    profilePictureUrl: 'https://via.placeholder.com/150',
+  },
+  locationMetadata: { name: 'Starbucks Downtown' },
+  created_at: new Date().toISOString(),
+  is_read: true,
 };
 
 // --- Feedback Modal ---
@@ -172,7 +325,7 @@ const FeedbackModal = ({ visible, onClose, onSubmit }) => {
   );
 };
 
-// --- General Bubble Popup (For Cal's messages) ---
+// --- General Bubble Popup ---
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
   if (!visible) return null;
   const isSuccess = type === 'success';
@@ -252,75 +405,6 @@ const ConflictResolutionModal = ({ visible, onClose, onResolve, proposalDate, or
                 <Text style={styles.keepOriginalButtonText}>Keep My Original Plan</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-// --- NEW TUTORIAL POPUP COMPONENT (Based on Figma) ---
-const TutorialPopup = ({ visible, step, onNext, onFinish }) => {
-  if (!visible || !step) return null;
-  const { text, bubblePosition, highlightLayout } = step;
-  const isLastStep = step.isLast;
-  const screen = Dimensions.get('window');
-
-  // Logic to draw the "Spotlight" (darken everything except the target)
-  const showSpotlight = highlightLayout && highlightLayout.width > 0;
-
-  return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.tutorialOverlayContainer}>
-        {showSpotlight && (
-          <>
-            {/* Top mask */}
-            <View style={[styles.overlayPart, { top: 0, height: highlightLayout.y }]} />
-            {/* Bottom mask */}
-            <View
-              style={[
-                styles.overlayPart,
-                { top: highlightLayout.y + highlightLayout.height, height: screen.height },
-              ]}
-            />
-            {/* Left mask */}
-            <View
-              style={[
-                styles.overlayPart,
-                {
-                  top: highlightLayout.y,
-                  height: highlightLayout.height,
-                  width: highlightLayout.x,
-                },
-              ]}
-            />
-            {/* Right mask */}
-            <View
-              style={[
-                styles.overlayPart,
-                {
-                  top: highlightLayout.y,
-                  height: highlightLayout.height,
-                  left: highlightLayout.x + highlightLayout.width,
-                  width: screen.width,
-                },
-              ]}
-            />
-          </>
-        )}
-        {!showSpotlight && <View style={styles.overlayPartFull} />}
-
-        <View style={[styles.tutorialContentWrapper, bubblePosition]}>
-          <View style={styles.tutorialContentContainer}>
-            <Image source={calcHappyIcon} style={styles.tutorialImage} />
-            <View style={styles.tutorialBubble}>
-              <Text style={styles.tutorialText}>{text}</Text>
-              <TouchableOpacity
-                style={styles.tutorialButton}
-                onPress={isLastStep ? onFinish : onNext}>
-                <Text style={styles.tutorialButtonText}>{isLastStep ? 'Got it!' : 'Next'}</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </View>
@@ -451,25 +535,70 @@ const CalendarHomeScreen = () => {
   });
   const [isConflictModalVisible, setConflictModalVisible] = useState(false);
   const [selectedDateForConflict, setSelectedDateForConflict] = useState<UpcomingDate | null>(null);
+
+  // Tutorial States
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
   const [layouts, setLayouts] = useState<any>({});
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  // ✅ Trigger Wingman Prompt (Animated Cal Message) on Mount
+  // Refs for precise measurement (FIX FOR OVERLAY POSITION)
+  const headerRef = useRef<View>(null);
+  const notificationRef = useRef<View>(null); // ✅ NEW REF FOR NOTIFICATION ICON
+  const calendarRef = useRef<View>(null);
+  const plansRef = useRef<View>(null);
+
+  // Function to measure layout in absolute window coordinates
+  // This solves the issue where highlight is shifted up by header height
+  const updateLayouts = () => {
+    if (headerRef.current) {
+      headerRef.current.measureInWindow((x, y, width, height) => {
+        setLayouts((prev) => ({ ...prev, header: { x, y, width, height } }));
+      });
+    }
+    // ✅ MEASURE NOTIFICATION ICON SPECIFICALLY
+    if (notificationRef.current) {
+      notificationRef.current.measureInWindow((x, y, width, height) => {
+        // Adjust padding slightly to make the circle look good
+        const padding = 4;
+        setLayouts((prev) => ({
+          ...prev,
+          notification: {
+            x: x - padding,
+            y: y - padding,
+            width: width + padding * 2,
+            height: height + padding * 2,
+          },
+        }));
+      });
+    }
+    if (calendarRef.current) {
+      calendarRef.current.measureInWindow((x, y, width, height) => {
+        setLayouts((prev) => ({ ...prev, calendar: { x, y, width, height } }));
+      });
+    }
+    if (plansRef.current) {
+      plansRef.current.measureInWindow((x, y, width, height) => {
+        setLayouts((prev) => ({ ...prev, plans: { x, y, width, height } }));
+      });
+    }
+  };
+
+  // Trigger measurement when tutorial starts or step changes
   useEffect(() => {
-    // This rotates the "When?" prompt to give Cal life
-    const prompt = WHEN_PROMPTS[whenPromptIndex];
-    whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
+    if (tutorialStep !== null) {
+      // Small delay to ensure rendering is complete
+      setTimeout(updateLayouts, 200);
+    }
+  }, [tutorialStep, isCalendarLoading]);
 
-    // Show this prompt only if user has ALREADY seen the tutorial (to avoid popup spam)
+  // ✅ Trigger Wingman Prompt (Animated Cal Message) on Mount if not doing tutorial
+  useEffect(() => {
     if (userProfile?.hasSeenCalendarTutorial) {
-      showPopup('Cal says:', prompt, 'success');
+      const prompt = WHEN_PROMPTS[whenPromptIndex];
+      whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
+      setPopupState({ visible: true, type: 'success', title: 'Cal says:', message: prompt });
     }
   }, [userProfile?.hasSeenCalendarTutorial]);
-
-  const handleSetLayout = useCallback((key, event) => {
-    const { x, y, width, height } = event.nativeEvent.layout;
-    setLayouts((prev) => ({ ...prev, [key]: { x, y, width, height } }));
-  }, []);
 
   const showPopup = (title, message, type = 'error') =>
     setPopupState({ visible: true, type, title, message });
@@ -505,9 +634,10 @@ const CalendarHomeScreen = () => {
       if (isAuthReady && !isAuthLoading) {
         fetchAllScreenData();
       }
-      // Start Tutorial only if user hasn't seen it
+      // Start Tutorial check
       if (userProfile && userProfile.hasSeenCalendarTutorial === false) {
         const timer = setTimeout(() => {
+          // Check again to be safe
           if (useUserStore.getState().userProfile?.hasSeenCalendarTutorial === false) {
             setTutorialStep(0);
           }
@@ -541,7 +671,12 @@ const CalendarHomeScreen = () => {
       showPopup('Submission Failed', 'Could not submit your feedback. Please try again.', 'error');
     }
   };
+
   const handleDateItemPress = (item) => {
+    // Prevent navigation if in tutorial and item is fake
+    if (tutorialStep !== null && item.dateId === 99999) {
+      return;
+    }
     if (item.status === 'pending_conflict') {
       handleResolveConflictPress(item);
       return;
@@ -584,6 +719,10 @@ const CalendarHomeScreen = () => {
   const handleNextTutorialStep = () => {
     if (tutorialStep !== null) {
       setTutorialStep(tutorialStep + 1);
+      // If moving to list step, scroll down
+      if (tutorialStep === 2 && scrollViewRef.current) {
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }
     }
   };
 
@@ -604,57 +743,54 @@ const CalendarHomeScreen = () => {
     return upcomingDates.find((d) => d.dateId === selectedDateForConflict.conflictsWithDateId);
   }, [selectedDateForConflict, upcomingDates]);
 
-  // --- TUTORIAL STEPS LOGIC (Based on Screenshots) ---
+  // --- TUTORIAL CONFIGURATION ---
   const TUTORIAL_STEPS = useMemo(() => {
+    // ✅ NEW: Calculate "Legend" Position based on Calendar Position
+    let legendLayout = null;
+    if (layouts.calendar) {
+      const legendHeight = 70; // Tight fit for legend
+      legendLayout = {
+        x: layouts.calendar.x,
+        y: layouts.calendar.y + layouts.calendar.height - legendHeight,
+        width: layouts.calendar.width,
+        height: legendHeight,
+      };
+    }
+
     const steps = [
       {
-        text: 'Hi welcome to the Calendar screen. Here is where all the magic happens.',
-        bubblePosition: { justifyContent: 'center', alignItems: 'center' },
-        highlightLayout: null,
+        // ✅ UPDATED TEXT to match the user's request about notifications and limits
+        text: 'Tap the bell icon to check notifications, view request examples, and see details on your limits.',
+        // ✅ TARGETING THE BELL ICON SPECIFICALLY
+        targetLayout: layouts.notification || null,
       },
-      // Screenshot 2: Highlight Calendar
       {
-        target: 'calendar',
-        text: 'This is your calendar. Days with confirmed plans will be highlighted!',
-        bubblePosition: layouts.calendar
-          ? { top: layouts.calendar.y + layouts.calendar.height + 10, alignSelf: 'center' }
-          : { justifyContent: 'center', alignItems: 'center' },
+        text: 'This is your Calendar. Tap a day to post a video story or view others!',
+        targetLayout: layouts.calendar || null,
       },
-      // Screenshot 3: Highlight Header (Profile/Notifications)
       {
-        target: 'header',
-        text: 'You can access your profile and notifications from the top right corner.',
-        bubblePosition: layouts.header
-          ? { top: layouts.header.y + layouts.header.height + 10, alignSelf: 'flex-end', right: 15 }
-          : { justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-end' },
+        text: 'Keep an eye on these colors to know the status of your plans.',
+        targetLayout: legendLayout || null,
       },
-      // Plans
       {
-        target: 'plans',
-        text: 'Scroll down to see your upcoming and past plans in detail.',
-        bubblePosition: layouts.plans
-          ? { top: layouts.plans.y - 180, alignSelf: 'center' }
-          : { justifyContent: 'center', alignItems: 'center' },
-      },
-      // Screenshot 1: Highlight Bottom Bar
-      {
-        target: 'story',
-        text: 'Tap the center button in the navigation bar below to post a story for your matches to see!',
-        bubblePosition: { bottom: 100, alignSelf: 'center' },
-        highlightLayout: {
-          x: Dimensions.get('window').width / 2 - 40,
-          y: Dimensions.get('window').height - 80,
-          width: 80,
-          height: 80,
-        },
+        text: 'Here are your Upcoming Plans. Confirmed dates appear here!',
+        targetLayout: layouts.plans || null,
       },
     ];
     return steps.map((step, index) => ({
       ...step,
-      highlightLayout: step.highlightLayout || layouts[step.target] || null,
       isLast: index === steps.length - 1,
     }));
   }, [layouts]);
+
+  // Render Logic for Dummy Date during Tutorial
+  const datesToRender = useMemo(() => {
+    if (tutorialStep === 3 && upcomingDates.length === 0) {
+      // If we are on the "Plans" step (index 3) and no real dates, show dummy
+      return [DEMO_DATE];
+    }
+    return upcomingDates;
+  }, [tutorialStep, upcomingDates]);
 
   if (!isAuthReady || isAuthLoading)
     return (
@@ -667,7 +803,11 @@ const CalendarHomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.topHeader} onLayout={(e) => handleSetLayout('header', e)}>
+      <View
+        style={styles.topHeader}
+        ref={headerRef} // ✅ Added ref for window measurement
+        onLayout={updateLayouts} // Fallback trigger
+      >
         <View style={styles.headerGroupLeft}>
           <Image source={LOGO_IMAGE} style={styles.logoImage} />
         </View>
@@ -676,7 +816,11 @@ const CalendarHomeScreen = () => {
             <Ionicons name="person-outline" size={26} color={colors.White} />
           </TouchableOpacity>
           <View style={{ width: 20 }} />
+
+          {/* ✅ UPDATED: Added Ref to this TouchableOpacity for the Tutorial Highlight */}
           <TouchableOpacity
+            ref={notificationRef}
+            onLayout={updateLayouts}
             style={styles.iconButton}
             onPress={() => {
               setUnreadCount(0);
@@ -691,7 +835,9 @@ const CalendarHomeScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
+
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={
           <RefreshControl
@@ -705,23 +851,32 @@ const CalendarHomeScreen = () => {
             <ActivityIndicator size="large" color={colors.GoldPrimary} />
           </View>
         ) : (
-          <View
-            style={styles.calendarGridContainer}
-            onLayout={(e) => handleSetLayout('calendar', e)}>
-            <VideoCalendar
-              user={auth0User}
-              calendarData={calendarData}
-              plannedDates={upcomingDates}
-            />
-          </View>
+          <>
+            {/* Calendar Wrapper */}
+            <View
+              ref={calendarRef} // ✅ Added ref for window measurement
+              onLayout={updateLayouts} // Trigger update on layout
+              style={{ marginBottom: 10 }}>
+              <VideoCalendar
+                user={auth0User}
+                calendarData={calendarData}
+                plannedDates={upcomingDates}
+              />
+            </View>
+          </>
         )}
-        <View style={styles.upcomingSection} onLayout={(e) => handleSetLayout('plans', e)}>
+
+        <View
+          ref={plansRef} // ✅ Added ref for window measurement
+          style={styles.upcomingSection}
+          onLayout={updateLayouts}>
           <Text style={styles.upcomingTitle}>Upcoming & Past Plans</Text>
+
           {isUpcomingLoading && upcomingDates.length === 0 ? (
             <ActivityIndicator color={colors.White} style={{ marginTop: 20 }} />
-          ) : upcomingDates.length > 0 ? (
+          ) : datesToRender.length > 0 ? (
             <View style={styles.listContainer}>
-              {upcomingDates.map((item, idx) => (
+              {datesToRender.map((item, idx) => (
                 <View key={item.dateId}>
                   <UpcomingDateItem
                     item={item}
@@ -729,7 +884,7 @@ const CalendarHomeScreen = () => {
                     onRatePress={handleRatePress}
                     onResolveConflictPress={handleResolveConflictPress}
                   />
-                  {idx < upcomingDates.length - 1 && <View style={styles.separator} />}
+                  {idx < datesToRender.length - 1 && <View style={styles.separator} />}
                 </View>
               ))}
             </View>
@@ -738,6 +893,7 @@ const CalendarHomeScreen = () => {
           )}
         </View>
       </ScrollView>
+
       <FeedbackModal
         visible={isFeedbackModalVisible}
         onClose={() => setFeedbackModalVisible(false)}
@@ -758,7 +914,9 @@ const CalendarHomeScreen = () => {
         proposalDate={selectedDateForConflict}
         originalDate={originalDateForConflict}
       />
-      <TutorialPopup
+
+      {/* GLOW TUTORIAL OVERLAY */}
+      <TutorialGlowOverlay
         visible={tutorialStep !== null}
         step={tutorialStep !== null ? TUTORIAL_STEPS[tutorialStep] : null}
         onNext={handleNextTutorialStep}
@@ -1016,48 +1174,48 @@ const styles = StyleSheet.create({
   acceptNewButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
   keepOriginalButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.White },
   keepOriginalButtonText: { color: colors.White, fontWeight: 'bold', fontSize: 16 },
-  // --- Tutorial Styles Updated ---
+
+  // --- TUTORIAL STYLES (NEW) ---
   tutorialOverlayContainer: {
     flex: 1,
     position: 'relative',
     backgroundColor: 'transparent',
   },
-  overlayPart: { position: 'absolute', backgroundColor: 'rgba(0, 0, 0, 0.85)' },
-  overlayPartFull: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.85)' },
-  tutorialContentWrapper: {
+  maskPart: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    padding: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
-  tutorialContentContainer: {
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 350,
+  maskPartFull: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
-  tutorialImage: {
-    width: 180,
-    height: 180,
+  tutorialBubbleContainer: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  tutorialCalImage: {
+    width: 150,
+    height: 150,
     resizeMode: 'contain',
-    marginBottom: -60,
-    zIndex: 2,
+    marginBottom: -50,
+    zIndex: 22,
   },
   tutorialBubble: {
     width: '100%',
     backgroundColor: colors.White || '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    paddingTop: 80,
+    paddingTop: 60,
     alignItems: 'center',
-    zIndex: 1,
+    zIndex: 21,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
   tutorialText: {
     fontSize: 16,
@@ -1066,7 +1224,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 22,
   },
-  tutorialButton: {
+  tutorialNextButton: {
     backgroundColor: colors.GoldPrimary || '#FFDB5C',
     borderRadius: 20,
     paddingVertical: 10,

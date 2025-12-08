@@ -1,5 +1,5 @@
 // --- COMPLETE FINAL UPDATED CODE: app/(app)/propose-date.tsx ---
-// ✅ CHANGE: "Where" Rotating Prompts added via BubblePopup on mount.
+// ✅ CHANGE: Added Safety Warning ("Important: Please be sure to pick a safe...") to Cal's popup.
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -161,14 +161,18 @@ const ProposeDateScreen = () => {
     setPopupState({ visible: true, title, message, type, onCloseCallback });
   };
 
-  // ✅ Wingman "Where" Prompt Trigger
+  // ✅ Wingman "Where" Prompt Trigger WITH SAFETY WARNING
   useEffect(() => {
     // This triggers Cal to ask "Where?" when the user lands on the propose-date screen
     const prompt = WHERE_PROMPTS[wherePromptIndex];
     wherePromptIndex = (wherePromptIndex + 1) % WHERE_PROMPTS.length;
 
-    // Show the popup
-    showPopup('Cal says:', prompt, 'success');
+    // Safety Warning Text
+    const safetyWarning =
+      '\n\nImportant:\nPlease be sure to pick a safe and familiar location to you, we ask that you do not use your actual personal address for scheduling dates.';
+
+    // Show the popup with the prompt AND the safety warning
+    showPopup('Cal says:', prompt + safetyWarning, 'success');
   }, []);
 
   useEffect(() => {
