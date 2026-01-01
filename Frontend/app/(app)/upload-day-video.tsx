@@ -22,9 +22,9 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
-import { uploadCalendarVideo } from '../../api/api';
+import { uploadCalendarVideo, getStoriesByDate } from '../../api/api';
 import { parse, format } from 'date-fns';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
 
 // Type definition for ImagePicker
 type ImagePickerAsset = ImagePicker.ImagePickerAsset;
@@ -160,6 +160,23 @@ const UploadDayVideo = () => {
     setUploadProgress(0);
   };
 
+  // ✅ AUDIO CLEANUP: Stop all background audio/video before recording
+  const cleanupAudioBeforeRecording = async () => {
+    try {
+      // Set audio mode for recording - this stops background playback
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+    } catch (error) {
+      console.error('Error cleaning up audio before recording:', error);
+      // Don't block recording if audio cleanup fails
+    }
+  };
+
   const pickVideoFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -170,6 +187,10 @@ const UploadDayVideo = () => {
       );
       return;
     }
+    
+    // ✅ CRITICAL FIX: Cleanup audio before opening library picker
+    await cleanupAudioBeforeRecording();
+    
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
@@ -196,6 +217,10 @@ const UploadDayVideo = () => {
       );
       return;
     }
+    
+    // ✅ CRITICAL FIX: Cleanup audio before launching camera
+    await cleanupAudioBeforeRecording();
+    
     try {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
@@ -277,20 +302,34 @@ const UploadDayVideo = () => {
         }
       });
 
-      // ✅ COPY & VISUALS FOR SUCCESS (Matches previous request)
-      showPopup(
-        'neutral', // Triggers Sad Face
-        "It's Quiet out here",
-        'So far you are the only one looking in your area please check back via the calendar frequently for new story updates.',
-        'Great!',
-        () => {
+      // ✅ CHECK IF STORIES EXIST - Route accordingly
+      try {
+        const storiesResponse = await getStoriesByDate(date);
+        const stories = storiesResponse.data || [];
+        
+        if (stories.length > 0) {
+          // Stories from other users exist - route to stories feed
+          router.replace({
+            pathname: '/(app)/stories',
+            params: { date }
+          });
+        } else {
+          // No stories from other users - route back to calendar
           if (router.canGoBack()) {
             router.back();
           } else {
             router.replace('/(app)/calendar');
           }
         }
-      );
+      } catch (checkError) {
+        // If checking stories fails, default to routing back to calendar
+        console.error('Error checking stories:', checkError);
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(app)/calendar');
+        }
+      }
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.message || error.message || 'Could not upload video.';

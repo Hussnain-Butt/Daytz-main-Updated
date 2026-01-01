@@ -19,6 +19,7 @@ export interface User {
   referralSource?: string | null; // ✅ NAYA FIELD
   latitude?: number | null; // ✅ NAYI PROPERTY
   longitude?: number | null; // ✅ NAYI PROPERTY
+  hasSeenWingmanPrompt?: boolean; // ✅ Track if user has seen the initial "Cal says" popup
 }
 
 export interface UserProfileEditData {

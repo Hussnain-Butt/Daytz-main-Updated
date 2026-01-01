@@ -227,6 +227,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setSession(newSession);
           setAuth0User(userInfo);
 
+          // ✅ CORRECT LOGIC: New users see welcome flow, existing users see thank-you once
           if (profileResult.isNewUser) {
             setShowWelcomeVideo(true);
             setShowThankYouAfterAuth(false);
@@ -323,7 +324,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         if (dbProfileResult.success) {
           setAuth0User(userInfo);
+          // ✅ CORRECT: Returning users (session restore) skip all welcome screens
           setShowWelcomeVideo(false);
+          setShowThankYouAfterAuth(false);
         } else {
           throw new Error('DB profile setup failed on load.');
         }

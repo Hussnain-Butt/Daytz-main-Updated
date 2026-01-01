@@ -80,6 +80,15 @@ export const markCalendarTutorialAsSeen = async (): Promise<AxiosResponse<{ mess
   }
 };
 
+// ✅ WINGMAN PROMPT: New function to mark wingman prompt as seen
+export const markWingmanPromptAsSeen = async (): Promise<AxiosResponse<{ message: string }>> => {
+  try {
+    return await apiClient.post(`/users/me/mark-wingman-prompt-seen`);
+  } catch (e) {
+    throw e;
+  }
+};
+
 export const addDateFeedback = async (
   dateId: number,
   payload: { outcome: DateOutcome; notes?: string }

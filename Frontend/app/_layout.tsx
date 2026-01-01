@@ -33,8 +33,11 @@ function RootLayoutNav() {
     const inAppGroup = segments[0] === '(app)';
 
     if (isUserLoggedIn) {
+      // ✅ CORRECT FLOW:
+      // New users: showWelcomeVideo=true → welcome-video screen
+      // Existing users (first time after login): showThankYouAfterAuth=true → thank-you screen
+      // Returning users (session restore): both false → calendar screen
       if (showWelcomeVideo) {
-        // Yeh logic bilkul sahi hai, welcome video par bhejega
         router.replace('/welcome-video');
       } else if (showThankYouAfterAuth) {
         router.replace('/(app)/thank-you');

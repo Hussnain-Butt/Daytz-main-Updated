@@ -33,6 +33,7 @@ import {
   addDateFeedback,
   resolveDateConflict,
   markCalendarTutorialAsSeen,
+  markWingmanPromptAsSeen,
 } from '../../api/api';
 import { CalendarDay } from '../../types/CalendarDay';
 import { UpcomingDate, DateOutcome } from '../../types/Date';
@@ -591,14 +592,24 @@ const CalendarHomeScreen = () => {
     }
   }, [tutorialStep, isCalendarLoading]);
 
-  // ✅ Trigger Wingman Prompt (Animated Cal Message) on Mount if not doing tutorial
+  // ✅ Trigger Wingman Prompt (Animated Cal Message) ONLY ONCE on first signup
   useEffect(() => {
-    if (userProfile?.hasSeenCalendarTutorial) {
+    // Only show if user has completed tutorial but hasn't seen the wingman prompt yet
+    if (userProfile?.hasSeenCalendarTutorial && userProfile?.hasSeenWingmanPrompt === false) {
       const prompt = WHEN_PROMPTS[whenPromptIndex];
       whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
       setPopupState({ visible: true, type: 'success', title: 'Cal says:', message: prompt });
+      
+      // Mark as seen so it doesn't show again
+      markWingmanPromptAsSeen()
+        .then(() => {
+          updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
+        })
+        .catch((error) => {
+          console.error('Failed to mark wingman prompt as seen:', error);
+        });
     }
-  }, [userProfile?.hasSeenCalendarTutorial]);
+  }, [userProfile?.hasSeenCalendarTutorial, userProfile?.hasSeenWingmanPrompt]);
 
   const showPopup = (title, message, type = 'error') =>
     setPopupState({ visible: true, type, title, message });
