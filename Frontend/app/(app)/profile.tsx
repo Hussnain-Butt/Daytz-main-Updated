@@ -396,7 +396,7 @@ const Profile = () => {
   const TUTORIAL_STEPS = useMemo(() => {
     return [
       {
-        text: "Hi! I'm Cal. Your profile is blank! Let's get you set up so you can start meeting people.",
+        text: "Your profile is blank! Let's get you set up so you can start meeting people.",
         targetLayout: null,
       },
       {
@@ -520,7 +520,7 @@ const Profile = () => {
     // ✅ FIX 4: Zip Code Validation with Sad Cal ('error')
     if (!editedProfile.zipcode?.trim() || !/^\d{5}$/.test(editedProfile.zipcode.trim())) {
       showPopup(
-        'Cal says:',
+        '',
         "That zip code doesn't look right. Please enter a valid 5-digit zip code so I can find matches near you!",
         'error'
       );

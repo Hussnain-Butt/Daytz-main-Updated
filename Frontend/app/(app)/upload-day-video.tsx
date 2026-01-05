@@ -143,7 +143,7 @@ const UploadDayVideo = () => {
   useEffect(() => {
     const currentPrompt = CONVERSATION_STARTERS[promptIndex];
     promptIndex = (promptIndex + 1) % CONVERSATION_STARTERS.length;
-    showPopup('success', 'Cal says:', currentPrompt, "Let's do it!");
+    showPopup('success', '', currentPrompt, "Let's do it!");
   }, []);
 
   const handleSelectedVideo = (asset: ImagePickerAsset) => {
@@ -358,16 +358,16 @@ const UploadDayVideo = () => {
 
           <View style={styles.previewWrapper}>
             {videoAsset ? (
-              <Video
+            <Video
                 ref={videoPlayerRef}
                 source={{ uri: videoAsset.uri }}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls
-                isLooping
-                // ✅ CRITICAL FIX: Only play if NOT uploading.
-                shouldPlay={!isUploading}
-                // ✅ CRITICAL FIX: Mute audio if uploading.
-                isMuted={isUploading}
+                isLooping={false}
+                // ✅ FIX: Never auto-play - user can manually play using native controls
+                shouldPlay={false}
+                // ✅ FIX: Start muted to prevent background audio
+                isMuted={true}
                 style={styles.videoPreview}
               />
             ) : (

@@ -447,6 +447,11 @@ const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }
     ((item.userFrom === useUserStore.getState().userProfile?.userId && !item.userFromApproved) ||
       (item.userTo === useUserStore.getState().userProfile?.userId && !item.userToApproved));
   const isConflictPending = item.status === 'pending_conflict';
+  // NEW: Check if I've already responded but waiting for other user
+  const isAwaitingTheirResponse =
+    item.status === 'pending' &&
+    ((item.userFrom === useUserStore.getState().userProfile?.userId && item.userFromApproved && !item.userToApproved) ||
+      (item.userTo === useUserStore.getState().userProfile?.userId && item.userToApproved && !item.userFromApproved));
   return (
     <TouchableOpacity style={styles.upcomingItem} onPress={() => onPress(item)}>
       <Avatar.Image size={52} source={{ uri: item.otherUser.profilePictureUrl }} />
@@ -491,6 +496,12 @@ const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }
               <View style={styles.pendingStatusContainer}>
                 <Ionicons name="hourglass-outline" size={18} color={colors.GoldPrimary} />
                 <Text style={styles.pendingStatusText}>Response needed</Text>
+              </View>
+            )}
+            {isAwaitingTheirResponse && (
+              <View style={styles.pendingStatusContainer}>
+                <Ionicons name="time-outline" size={18} color={colors.LightGrey} />
+                <Text style={styles.pendingStatusText}>Awaiting</Text>
               </View>
             )}
             {item.status === 'needs_rescheduling' && (
@@ -598,7 +609,7 @@ const CalendarHomeScreen = () => {
     if (userProfile?.hasSeenCalendarTutorial && userProfile?.hasSeenWingmanPrompt === false) {
       const prompt = WHEN_PROMPTS[whenPromptIndex];
       whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
-      setPopupState({ visible: true, type: 'success', title: 'Cal says:', message: prompt });
+      setPopupState({ visible: true, type: 'success', title: '', message: prompt });
       
       // Mark as seen so it doesn't show again
       markWingmanPromptAsSeen()

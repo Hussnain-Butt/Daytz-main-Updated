@@ -85,11 +85,21 @@ const ThankYouScreen = () => {
   let showSubMessage = false;
 
   if (showThankYouAfterAuth) {
-    // New User / Login State
-    titleText = 'Welcome!';
-    messageText =
-      'You have taken your first step to getting out and meeting new people! Congratulations!';
-    showSubMessage = true;
+    // Check if user has complete profile (returning user) or not (new user)
+    const isReturningUser = userProfile?.is_profile_complete === true;
+    
+    if (isReturningUser) {
+      // Returning User Login State
+      titleText = 'Welcome Back!';
+      messageText = "Let's get back to meeting new people and creating new experiences together.";
+      showSubMessage = false;
+    } else {
+      // New User / First Time Login State
+      titleText = 'Welcome!';
+      messageText =
+        'You have taken your first step to getting out and meeting new people! Congratulations!';
+      showSubMessage = true;
+    }
   } else if (profileJustCompletedForNav) {
     // Profile Completion State
     titleText = 'Profile Complete!';

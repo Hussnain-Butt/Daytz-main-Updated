@@ -180,7 +180,7 @@ export default function AttractionScreen() {
     whyPromptIndex = (whyPromptIndex + 1) % WHY_PROMPTS.length;
 
     // Show the popup
-    showPopup('Cal says:', prompt, 'success');
+    showPopup('', prompt, 'success');
   }, []);
 
   const localStoryDate = useMemo(() => {

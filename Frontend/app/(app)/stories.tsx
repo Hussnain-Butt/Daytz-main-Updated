@@ -593,7 +593,7 @@ export default function StoriesScreen() {
     whoPromptIndex = (whoPromptIndex + 1) % WHO_PROMPTS.length;
 
     // Show the popup
-    showPopup('Cal says:', prompt, 'success');
+    showPopup('', prompt, 'success');
   }, []);
 
   useEffect(() => {

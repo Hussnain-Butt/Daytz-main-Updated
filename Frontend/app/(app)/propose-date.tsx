@@ -172,7 +172,7 @@ const ProposeDateScreen = () => {
       '\n\nImportant:\nPlease be sure to pick a safe and familiar location to you, we ask that you do not use your actual personal address for scheduling dates.';
 
     // Show the popup with the prompt AND the safety warning
-    showPopup('Cal says:', prompt + safetyWarning, 'success');
+    showPopup('', prompt + safetyWarning, 'success');
   }, []);
 
   useEffect(() => {
