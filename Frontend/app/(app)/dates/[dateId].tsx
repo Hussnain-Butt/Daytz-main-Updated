@@ -168,14 +168,15 @@ const RescheduleModal = ({
 
       const existingDateTime = buildLocalDateTime(existingDate.date, existingDate.time);
       if (existingDateTime) {
-        const blockStart = subMinutes(existingDateTime, 30);
+        // ✅ 1.5 hour buffer: 90 minutes before and after each date
+        const blockStart = subMinutes(existingDateTime, 90);
         const blockEnd = addMinutes(existingDateTime, 90);
 
         if (isWithinInterval(newDateTime, { start: blockStart, end: blockEnd })) {
           setConflictError(
             `This conflicts with your date with ${
               existingDate.otherUser.firstName
-            } at ${format(existingDateTime, 'p')}.`
+            } at ${format(existingDateTime, 'p')}. Please select a time at least 1.5 hours before or after.`
           );
           return;
         }

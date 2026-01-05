@@ -253,13 +253,14 @@ const ProposeDateScreen = () => {
     for (const existingDate of myUpcomingDates) {
       const existingDateTime = buildLocalDateTime(existingDate.date, existingDate.time);
       if (existingDateTime) {
-        const blockStart = subMinutes(existingDateTime, 30);
+        // ✅ 1.5 hour buffer: 90 minutes before and after each date
+        const blockStart = subMinutes(existingDateTime, 90);
         const blockEnd = addMinutes(existingDateTime, 90);
         if (isWithinInterval(newDateTime, { start: blockStart, end: blockEnd })) {
           setConflictError(
             `This time conflicts with your confirmed date with ${
               existingDate.otherUser.firstName
-            } at ${format(existingDateTime, 'p')}.`
+            } at ${format(existingDateTime, 'p')}. Please select a time at least 1.5 hours before or after.`
           );
           return;
         }

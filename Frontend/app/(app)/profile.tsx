@@ -405,7 +405,7 @@ const Profile = () => {
         targetRef: avatarRef,
       },
       {
-        text: "This is the magic! Record a 30s video to show your personality. It's way better than text.",
+        text: "This is the magic! Record a 30 second video to show your personality. It's way better than text.",
         targetLayout: elementLayouts.video || null,
         targetRef: videoRef,
       },
@@ -724,7 +724,7 @@ const Profile = () => {
 
           {/* INFO SECTION */}
           <View ref={infoRef} collapsable={false} style={{ width: '100%' }}>
-            <Text style={styles.fieldLabel}>First Name</Text>
+            <Text style={styles.fieldLabel}>First name</Text>
             <TextInput
               style={styles.textInput}
               value={editedProfile.firstName || ''}
@@ -737,7 +737,7 @@ const Profile = () => {
             {!editedProfile.firstName?.trim() && (
               <Text style={styles.requiredText}>* Required</Text>
             )}
-            <Text style={styles.fieldLabel}>Last Name</Text>
+            <Text style={styles.fieldLabel}>Last name</Text>
             <TextInput
               style={styles.textInput}
               value={editedProfile.lastName || ''}
@@ -748,7 +748,7 @@ const Profile = () => {
               placeholderTextColor={colors.LightGrey}
             />
             {!editedProfile.lastName?.trim() && <Text style={styles.requiredText}>* Required</Text>}
-            <Text style={styles.fieldLabel}>Zipcode</Text>
+            <Text style={styles.fieldLabel}>Zip code</Text>
             <TextInput
               style={styles.textInput}
               value={editedProfile.zipcode || ''}
@@ -801,8 +801,8 @@ const Profile = () => {
               {isSaving
                 ? 'Saving...'
                 : isInitialSetup && !profileJustCompleted
-                  ? 'Save & View Profile'
-                  : 'Save Changes'}
+                  ? 'save & view profile'
+                  : 'save changes'}
             </Button>
           </View>
 

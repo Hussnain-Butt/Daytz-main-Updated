@@ -34,13 +34,14 @@ class DatesRepository {
     client: PoolClient | null = null,
   ): Promise<DateType[]> {
     const db = client || pool
+    // ✅ 1.5 hour buffer: 90 minutes before and after each date
     const query = `
       SELECT * FROM dates
       WHERE 
         date::date = $1::date
         AND (user_from = ANY($2::text[]) OR user_to = ANY($2::text[]))
         AND status IN ('pending', 'approved')
-        AND ($3::time) BETWEEN (time - INTERVAL '30 minutes') AND (time + INTERVAL '30 minutes');
+        AND ($3::time) BETWEEN (time - INTERVAL '90 minutes') AND (time + INTERVAL '90 minutes');
     `
     const { rows } = await db.query(query, [date, userIds, time])
     return rows.map(mapRowToDate).filter((d): d is DateType => d !== null)
