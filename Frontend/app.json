@@ -51,7 +51,9 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Daytz to access your photos to let you upload profile pictures.",
-        "NSMicrophoneUsageDescription": "Allow Daytz to access your microphone.",
+        "NSMicrophoneUsageDescription": "Allow Daytz to access your microphone to record videos.",
+        "NSCameraUsageDescription": "Allow Daytz to access your camera to record profile videos.",
+        "NSLocationWhenInUseUsageDescription": "Allow Daytz to access your location to find nearby venues for dates.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
