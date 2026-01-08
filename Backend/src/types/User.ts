@@ -22,6 +22,7 @@ export interface User {
   latitude?: number | null
   longitude?: number | null
   hasSeenCalendarTutorial: boolean // ✅ NAYI PROPERTY
+  hasSeenWingmanPrompt?: boolean // ✅ NEW: Track if user has seen Cal intro
 }
 
 // Defines what the frontend is allowed to send to update a user's profile.
@@ -40,6 +41,7 @@ export interface UpdateUserPayload {
   latitude?: number | null
   longitude?: number | null
   hasSeenCalendarTutorial?: boolean // ✅ NAYI PROPERTY
+  hasSeenWingmanPrompt?: boolean // ✅ NEW: Track if user has seen Cal intro
 }
 
 // Data structure used internally to create a new user.

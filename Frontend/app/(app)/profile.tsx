@@ -405,17 +405,17 @@ const Profile = () => {
         targetRef: avatarRef,
       },
       {
-        text: "This is the magic! Record a 30 second video to show your personality. It's way better than text.",
+        text: "This is the magic! Record a 30-second video to show your personality. It's way better than text.",
         targetLayout: elementLayouts.video || null,
         targetRef: videoRef,
       },
       {
-        text: 'Fill in your basic details like Name and Zipcode so we can find matches near you.',
+        text: 'Fill in your basic details like name and zip code so we can find matches near you.',
         targetLayout: elementLayouts.info || null,
         targetRef: infoRef,
       },
       {
-        text: "Once you're done, hit Save to activate your profile!",
+        text: "Once you're done, hit save to activate your profile!",
         targetLayout: elementLayouts.save || null,
         targetRef: saveRef,
         isLast: true,
@@ -755,7 +755,7 @@ const Profile = () => {
               onChangeText={(t) =>
                 setEditedProfile((p) => ({ ...p, zipcode: t.replace(/[^0-9]/g, '') }))
               }
-              placeholder="5-Digit Zipcode"
+              placeholder="5-digit zip code"
               keyboardType="numeric"
               maxLength={5}
               editable={!isSaving}
@@ -880,7 +880,7 @@ const Profile = () => {
           </Button>
           <Divider style={styles.divider} />
           <View style={styles.userInfoRow}>
-            <Text style={styles.userInfoLabel}>Zipcode:</Text>
+            <Text style={styles.userInfoLabel}>Zip Code:</Text>
             <Text style={styles.userInfoValue}>{userProfile.zipcode || 'Not set'}</Text>
           </View>
           <View style={styles.userInfoRow}>

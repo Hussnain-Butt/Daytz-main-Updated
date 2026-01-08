@@ -131,6 +131,27 @@ export const markCalendarTutorialAsSeenHandler = asyncHandler(
   },
 )
 
+// ✅ NEW: Handler for marking the wingman intro prompt as seen
+export const markWingmanPromptAsSeenHandler = asyncHandler(
+  async (req: CustomRequest, res: Response, next: NextFunction) => {
+    const userId = req.userId
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized: User ID missing from token.' })
+    }
+
+    try {
+      const updatedUser = await userService.markWingmanPromptAsSeen(userId)
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found or update failed.' })
+      }
+      res.status(200).json({ message: 'Wingman prompt status updated successfully.' })
+    } catch (error) {
+      console.error(`[markWingmanPromptAsSeenHandler] Error for user ${userId}:`, error)
+      next(error)
+    }
+  },
+)
+
 // --- Get User Token Balance Handler ---
 export const getUserTokenBalanceHandler = asyncHandler(
   async (req: CustomRequest, res: Response, next: NextFunction) => {

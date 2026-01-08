@@ -48,7 +48,7 @@ const calcErrorIcon = require('../../../assets/calc-error.png');
 
 // --- CAL'S ROTATING PROMPTS (FINAL/DATE CONFIRMED) ---
 const FINAL_PROMPTS = [
-  'Alright now, you two can take it from here and try to have fun',
+  'Alright now, you two can take it from here. Try to have fun!',
   "It's a date! Be respectful and have a blast.",
   "I've done my job. Now it's your turn—go have fun!",
   'Details locked. Enjoy your time together!',

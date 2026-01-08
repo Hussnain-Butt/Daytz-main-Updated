@@ -46,10 +46,10 @@ const calcErrorIcon = require('../../assets/calc-error.png');
 
 // --- CAL'S ROTATING PROMPTS (WHY) ---
 const WHY_PROMPTS = [
-  'Let me in on why you are interested in this person',
-  "Tell me what you like about them, I'll tell them nicely.",
+  "Let me know why you're interested in this person.",
+  "Tell me what you like about them, and I'll tell them nicely.",
   "What's the vibe? Romantic, friendly, or...?",
-  'Why them? Give me the details.',
+  'Why them? Give me the details!',
   'Help me understand your intentions here.',
 ];
 let whyPromptIndex = 0;

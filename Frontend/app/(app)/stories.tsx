@@ -23,7 +23,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { runOnJS, useSharedValue, useAnimatedStyle, withTiming, SharedValue } from 'react-native-reanimated';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -81,7 +81,7 @@ interface StoryWithKey extends StoryQueryResult {
   distance: string;
 }
 interface PlayableUrlMap {
-  [key: string]: string | null | 'loading' | 'error';
+  [key: string]: string | null | 'loading' | 'error' | 'processing';
 }
 interface VideoLoadStateMap {
   [key: string]: 'initial' | 'loading' | 'loaded' | 'error';
@@ -89,7 +89,7 @@ interface VideoLoadStateMap {
 interface StoryProgressBarsProps {
   storiesCount: number;
   currentStoryIndex: number;
-  currentVideoProgress: Animated.SharedValue<number>;
+  currentVideoProgress: SharedValue<number>;
   onBarPress?: (index: number) => void;
 }
 
@@ -340,42 +340,64 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
   );
 };
 
+// ✅ FIXED: Separate component for each progress segment to properly use hooks
+const ProgressSegment: React.FC<{
+  index: number;
+  currentStoryIndex: number;
+  currentVideoProgress: SharedValue<number>;
+  onBarPress?: (index: number) => void;
+}> = React.memo(({ index, currentStoryIndex, currentVideoProgress, onBarPress }) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    // Only animate for the current story
+    if (index === currentStoryIndex) {
+      const progressValue = Math.max(0, Math.min(1, currentVideoProgress.value)) * 100;
+      return {
+        width: withTiming(`${progressValue}%`, { duration: 100 }),
+      };
+    }
+    // Return 0 width for non-current (will not be rendered anyway)
+    return { width: '0%' };
+  }, [index, currentStoryIndex]);
+
+  // Determine the segment state
+  const isViewed = index < currentStoryIndex;
+  const isCurrent = index === currentStoryIndex;
+  // const isFuture = index > currentStoryIndex; // not rendered
+
+  return (
+    <TouchableOpacity
+      key={`progress-${index}`}
+      style={styles.progressBarSegment}
+      onPress={() => onBarPress?.(index)}
+      activeOpacity={0.8}
+      disabled={!onBarPress}>
+      <View style={styles.progressBarBackground}>
+        {isViewed ? (
+          // Already viewed - fully filled with solid background
+          <View style={[styles.progressBarFilled, { width: '100%' }]} />
+        ) : isCurrent ? (
+          // Currently viewing - animate based on video progress
+          <Animated.View style={[styles.progressBarFilled, animatedStyle]} />
+        ) : null /* Future stories - no fill, just background */}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 const StoryProgressBars: React.FC<StoryProgressBarsProps> = React.memo(
   ({ storiesCount, currentStoryIndex, currentVideoProgress, onBarPress }) => {
     if (storiesCount <= 1) return null;
     return (
       <View style={styles.progressBarsContainer}>
-        {Array.from({ length: storiesCount }).map((_, index) => {
-          const animatedStyle = useAnimatedStyle(() => ({
-            width: withTiming(
-              `${
-                index === currentStoryIndex
-                  ? Math.max(0, Math.min(1, currentVideoProgress.value)) * 100
-                  : 0
-              }%`,
-              { duration: 50 }
-            ),
-          }));
-          return (
-            <TouchableOpacity
-              key={`progress-${index}`}
-              style={styles.progressBarSegment}
-              onPress={() => onBarPress?.(index)}
-              activeOpacity={0.8}
-              disabled={!onBarPress}>
-              <View
-                style={[
-                  styles.progressBarBackground,
-                  index < currentStoryIndex && styles.progressBarFilled,
-                  index === currentStoryIndex && styles.progressBarActiveBackground,
-                ]}>
-                {index === currentStoryIndex && (
-                  <Animated.View style={[styles.progressBarFilled, animatedStyle]} />
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        {Array.from({ length: storiesCount }).map((_, index) => (
+          <ProgressSegment
+            key={`progress-${index}`}
+            index={index}
+            currentStoryIndex={currentStoryIndex}
+            currentVideoProgress={currentVideoProgress}
+            onBarPress={onBarPress}
+          />
+        ))}
       </View>
     );
   }
@@ -463,12 +485,26 @@ const StoryPage = React.memo(
             {(videoLoadState === 'loading' || videoLoadState === 'initial') &&
               !isBlocked &&
               playableUrl !== 'error' &&
+              playableUrl !== 'processing' &&
               playableUrl !== null && (
                 <View style={styles.videoCardActivityIndicator}>
                   <ActivityIndicator size="large" color={colors.White || '#FFF'} />
                 </View>
               )}
+            {/* ✅ NEW: Processing state with Cal icon and friendly message */}
+            {playableUrl === 'processing' && !isBlocked && (
+              <View style={styles.videoCardActivityIndicator}>
+                <Image source={calcHappyIcon} style={{ width: 80, height: 80, marginBottom: 10 }} />
+                <Text style={[styles.errorTextVideo, { color: colors.GoldPrimary || '#FFD700' }]}>
+                  Video is being prepared...
+                </Text>
+                <Text style={[styles.errorTextVideo, { fontSize: 12, marginTop: 5 }]}>
+                  Check back in a moment!
+                </Text>
+              </View>
+            )}
             {(playableUrl === 'error' || playableUrl === null || videoLoadState === 'error') &&
+              playableUrl !== 'processing' &&
               !isBlocked && (
                 <View style={styles.videoCardErrorDisplay}>
                   <Text style={styles.errorTextVideo}>Video unavailable</Text>
@@ -680,13 +716,37 @@ export default function StoriesScreen() {
     fetchStoriesData();
   }, [fetchStoriesData]);
 
+  // ✅ OPTIMIZED: Use backend playableUrl directly, only fetch if missing
   useEffect(() => {
-    const fetchUrlForStory = async (storyIndex: number) => {
+    const processStoryUrl = async (storyIndex: number) => {
       if (storyIndex < 0 || storyIndex >= stories.length) return;
       const story = stories[storyIndex];
       const storyId = story.uniqueStoryId;
+      
+      // Skip if already processed
       if (playableUrls[storyId]) return;
 
+      // ✅ FIX: Check if backend already provided playableUrl
+      if ((story as any).playableUrl) {
+        console.log(`[Stories] Using backend-provided playableUrl for story ${storyId}`);
+        setPlayableUrls((prev) => ({ ...prev, [storyId]: (story as any).playableUrl }));
+        return;
+      }
+
+      // Video is still processing - show friendly message
+      if (story.processingStatus !== 'complete') {
+        console.log(`[Stories] Video ${storyId} is still processing (status: ${story.processingStatus})`);
+        setPlayableUrls((prev) => ({ ...prev, [storyId]: 'processing' }));
+        // Show Cal's friendly processing message
+        showPopup(
+          'Almost Ready! 🎬',
+          "Your video is being prepared by our video team. This usually takes just a minute or two. Hang tight!",
+          'success'
+        );
+        return;
+      }
+
+      // Only fetch from API if backend didn't provide URL and video is complete
       setPlayableUrls((prev) => ({ ...prev, [storyId]: 'loading' }));
       const identifier = { calendarId: story.calendarId };
       try {
@@ -696,9 +756,12 @@ export default function StoriesScreen() {
         setPlayableUrls((prev) => ({ ...prev, [storyId]: 'error' }));
       }
     };
+    
     if (stories.length > 0) {
-      fetchUrlForStory(currentIndex);
-      if (currentIndex + 1 < stories.length) fetchUrlForStory(currentIndex + 1);
+      processStoryUrl(currentIndex);
+      // Prefetch next 2 stories for smoother experience
+      if (currentIndex + 1 < stories.length) processStoryUrl(currentIndex + 1);
+      if (currentIndex + 2 < stories.length) processStoryUrl(currentIndex + 2);
     }
   }, [currentIndex, stories, playableUrls]);
 

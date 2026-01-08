@@ -112,6 +112,14 @@ class UserService {
     return this.userRepository.updateUser(userId, { hasSeenCalendarTutorial: true })
   }
 
+  // ✅ NEW: Mark wingman intro prompt as seen
+  async markWingmanPromptAsSeen(userId: string): Promise<User | null> {
+    console.log(
+      `[UserService.markWingmanPromptAsSeen] Marking wingman prompt as seen for user ${userId}.`,
+    )
+    return this.userRepository.updateUser(userId, { hasSeenWingmanPrompt: true })
+  }
+
   async blockUser(blockerId: string, blockedId: string): Promise<boolean> {
     console.log(`[UserService.blockUser] User ${blockerId} attempting to block ${blockedId}`)
     if (blockerId === blockedId) {

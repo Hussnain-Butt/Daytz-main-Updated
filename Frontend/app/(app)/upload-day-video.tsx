@@ -41,10 +41,10 @@ const BRAND_LOGO = require('../../assets/brand.png');
 
 // --- CAL'S CONVERSATIONAL PROMPTS ---
 const CONVERSATION_STARTERS = [
-  'Hey, tell me what you got planned and would some company for?',
-  "What's the move? Pitch it to me, I'll pass it on.",
+  'Hey, tell me what you have planned and would like some company for!',
+  "What's the move? Pitch it to me, and I'll pass it on.",
   'Record a quick clip: What are you up to today?',
-  'Show them what a fun date looks like with you.',
+  'Show them what a fun date looks like with you!',
   "Help me help you. What's the vibe for this date?",
 ];
 let promptIndex = 0;

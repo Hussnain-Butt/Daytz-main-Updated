@@ -349,7 +349,7 @@ export default function NotificationsScreen() {
         targetLayout: layouts.list || null,
       },
       {
-        text: "Don't miss out—tap Refresh here anytime to make sure you have the latest updates.",
+        text: "Don't miss out—tap refresh here anytime to make sure you have the latest updates.",
         targetLayout: layouts.refresh || null,
         isLast: true,
       },

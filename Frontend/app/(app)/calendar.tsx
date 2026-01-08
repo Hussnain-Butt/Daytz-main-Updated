@@ -61,6 +61,22 @@ const WHEN_PROMPTS = [
 ];
 let whenPromptIndex = 0;
 
+// ✅ NEW: Wingman Introduction Messages (Multi-step with Next button)
+const WINGMAN_INTRO_MESSAGES = [
+  {
+    title: "Hey there! 👋",
+    message: "I'm Cal, your personal wingman on Daytz! I'll be here to guide you through setting up dates and making connections."
+  },
+  {
+    title: "How It Works",
+    message: "Post a video story on a day you're free, and others nearby who are also free that day can see it and express interest!"
+  },
+  {
+    title: "Ready to Get Started?",
+    message: "Pick a date on the calendar when you're free, and let's find someone great for you to meet!"
+  }
+];
+
 const parseDateOnlyLocal = (dateStr?: string | null): Date | null => {
   if (!dateStr) return null;
   const s = dateStr.substring(0, 10);
@@ -193,6 +209,48 @@ const TutorialGlowOverlay = ({ visible, step, onNext, onFinish }) => {
               style={styles.tutorialNextButton}
               onPress={isLast ? onFinish : onNext}>
               <Text style={styles.tutorialButtonText}>{isLast ? 'Got it!' : 'Next'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ✅ NEW: Wingman Intro Popup Component (Multi-step with Next button)
+const WingmanIntroPopup = ({ visible, currentStep, totalSteps, title, message, onNext, onFinish }) => {
+  if (!visible) return null;
+  const isLast = currentStep >= totalSteps - 1;
+  
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onFinish}>
+      <View style={styles.overlay}>
+        <View style={styles.wingmanIntroContainer}>
+          <Image source={calcHappyIcon} style={styles.wingmanIntroImage} />
+          <View style={styles.wingmanIntroBubble}>
+            {/* Progress Dots */}
+            <View style={styles.progressDotsContainer}>
+              {Array.from({ length: totalSteps }).map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.progressDot,
+                    index === currentStep && styles.progressDotActive,
+                    index < currentStep && styles.progressDotCompleted,
+                  ]}
+                />
+              ))}
+            </View>
+            
+            <Text style={styles.wingmanIntroTitle}>{title}</Text>
+            <Text style={styles.wingmanIntroMessage}>{message}</Text>
+            
+            <TouchableOpacity
+              style={styles.wingmanIntroButton}
+              onPress={isLast ? onFinish : onNext}>
+              <Text style={styles.wingmanIntroButtonText}>
+                {isLast ? "Let's Go!" : 'Next'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -552,6 +610,9 @@ const CalendarHomeScreen = () => {
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
   const [layouts, setLayouts] = useState<any>({});
   const scrollViewRef = useRef<ScrollView>(null);
+  
+  // ✅ NEW: Wingman Intro State (Multi-step popup)
+  const [wingmanIntroStep, setWingmanIntroStep] = useState<number | null>(null);
 
   // Refs for precise measurement (FIX FOR OVERLAY POSITION)
   const headerRef = useRef<View>(null);
@@ -603,24 +664,70 @@ const CalendarHomeScreen = () => {
     }
   }, [tutorialStep, isCalendarLoading]);
 
-  // ✅ Trigger Wingman Prompt (Animated Cal Message) ONLY ONCE on first signup
+  // ✅ FIX: Wingman Prompt ONLY for NEW users who just completed profile setup
+  // This popup should NEVER show for returning users (even briefly)
+  const { profileJustCompletedForNav } = useUserStore();
+  
+  // ✅ NEW: Track if we've checked the wingman state (prevents flash)
+  const [wingmanCheckComplete, setWingmanCheckComplete] = useState(false);
+  
   useEffect(() => {
-    // Only show if user has completed tutorial but hasn't seen the wingman prompt yet
-    if (userProfile?.hasSeenCalendarTutorial && userProfile?.hasSeenWingmanPrompt === false) {
-      const prompt = WHEN_PROMPTS[whenPromptIndex];
-      whenPromptIndex = (whenPromptIndex + 1) % WHEN_PROMPTS.length;
-      setPopupState({ visible: true, type: 'success', title: '', message: prompt });
-      
-      // Mark as seen so it doesn't show again
-      markWingmanPromptAsSeen()
-        .then(() => {
-          updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
-        })
-        .catch((error) => {
-          console.error('Failed to mark wingman prompt as seen:', error);
-        });
+    // ✅ CRITICAL FIX: Wait for userProfile to be fully loaded before any decision
+    if (!userProfile) {
+      return; // Don't do anything until profile is loaded
     }
-  }, [userProfile?.hasSeenCalendarTutorial, userProfile?.hasSeenWingmanPrompt]);
+    
+    // ✅ CRITICAL: If user has already seen the wingman prompt, mark check complete and exit
+    if (userProfile.hasSeenWingmanPrompt === true) {
+      setWingmanCheckComplete(true);
+      return; // NEVER show intro for returning users
+    }
+    
+    // ✅ CRITICAL: Only show for NEW users who JUST completed their profile
+    // profileJustCompletedForNav is ONLY true immediately after profile setup
+    // Returning users will NEVER have this flag set
+    if (!profileJustCompletedForNav) {
+      setWingmanCheckComplete(true);
+      return; // Early exit - no popup for returning users
+    }
+    
+    // Additional safety check - must have seen calendar tutorial first
+    if (!userProfile?.hasSeenCalendarTutorial) {
+      setWingmanCheckComplete(true);
+      return;
+    }
+    
+    // ✅ NEW: Small delay to ensure no flash (let other UI settle first)
+    const timer = setTimeout(() => {
+      // Double-check the flag hasn't changed
+      if (profileJustCompletedForNav && !userProfile.hasSeenWingmanPrompt) {
+        setWingmanIntroStep(0);
+      }
+      setWingmanCheckComplete(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+    
+  }, [profileJustCompletedForNav, userProfile?.hasSeenCalendarTutorial, userProfile?.hasSeenWingmanPrompt, userProfile]);
+
+  // ✅ NEW: Handler for Wingman Intro Next button
+  const handleWingmanIntroNext = () => {
+    if (wingmanIntroStep !== null && wingmanIntroStep < WINGMAN_INTRO_MESSAGES.length - 1) {
+      setWingmanIntroStep(wingmanIntroStep + 1);
+    }
+  };
+
+  // ✅ NEW: Handler for Wingman Intro Finish
+  const handleWingmanIntroFinish = async () => {
+    setWingmanIntroStep(null);
+    // Mark as seen so it doesn't show again
+    try {
+      await markWingmanPromptAsSeen();
+      updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
+    } catch (error) {
+      console.error('Failed to mark wingman prompt as seen:', error);
+    }
+  };
 
   const showPopup = (title, message, type = 'error') =>
     setPopupState({ visible: true, type, title, message });
@@ -944,6 +1051,20 @@ const CalendarHomeScreen = () => {
         onNext={handleNextTutorialStep}
         onFinish={handleFinishTutorial}
       />
+      
+      {/* ✅ NEW: Wingman Intro Popup (Multi-step) */}
+      {/* ✅ FIX: Only render when check is complete to prevent flash */}
+      {wingmanCheckComplete && (
+        <WingmanIntroPopup
+          visible={wingmanIntroStep !== null}
+          currentStep={wingmanIntroStep ?? 0}
+          totalSteps={WINGMAN_INTRO_MESSAGES.length}
+          title={wingmanIntroStep !== null ? WINGMAN_INTRO_MESSAGES[wingmanIntroStep]?.title : ''}
+          message={wingmanIntroStep !== null ? WINGMAN_INTRO_MESSAGES[wingmanIntroStep]?.message : ''}
+          onNext={handleWingmanIntroNext}
+          onFinish={handleWingmanIntroFinish}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -1254,6 +1375,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tutorialButtonText: { color: colors.Black || '#000000', fontSize: 15, fontWeight: 'bold' },
+
+  // ✅ NEW: Wingman Intro Popup Styles
+  wingmanIntroContainer: { 
+    alignItems: 'center', 
+    width: '100%', 
+    maxWidth: 380,
+  },
+  wingmanIntroImage: { 
+    width: 180, 
+    height: 180, 
+    resizeMode: 'contain', 
+    marginBottom: -60,
+    zIndex: 1,
+  },
+  wingmanIntroBubble: {
+    width: '100%',
+    backgroundColor: colors.White || '#FFFFFF',
+    borderRadius: 25,
+    padding: 25,
+    paddingTop: 80,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  progressDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  progressDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.Grey || '#CCCCCC',
+    marginHorizontal: 5,
+  },
+  progressDotActive: {
+    backgroundColor: colors.GoldPrimary || '#FFDB5C',
+    transform: [{ scale: 1.2 }],
+  },
+  progressDotCompleted: {
+    backgroundColor: colors.TealPrimary || '#00E0FF',
+  },
+  wingmanIntroTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.Black || '#000000',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  wingmanIntroMessage: {
+    fontSize: 16,
+    color: colors.LightBlack || '#222B45',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 24,
+    paddingHorizontal: 10,
+  },
+  wingmanIntroButton: {
+    backgroundColor: colors.GoldPrimary || '#FFDB5C',
+    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 50,
+    alignItems: 'center',
+    shadowColor: colors.GoldPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  wingmanIntroButtonText: { 
+    color: colors.Black || '#000000', 
+    fontSize: 17, 
+    fontWeight: 'bold',
+  },
 });
 
 export default CalendarHomeScreen;

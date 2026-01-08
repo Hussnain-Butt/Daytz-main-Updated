@@ -32,6 +32,12 @@ router.post(
   ...protectedRouteMiddleware,
   asyncHandler(userHandler.markCalendarTutorialAsSeenHandler),
 )
+// ✅ NEW: Route for marking wingman intro prompt as seen
+router.post(
+  '/users/me/mark-wingman-prompt-seen',
+  ...protectedRouteMiddleware,
+  asyncHandler(userHandler.markWingmanPromptAsSeenHandler),
+)
 router.post(
   '/users/profilePicture',
   ...protectedRouteMiddleware,

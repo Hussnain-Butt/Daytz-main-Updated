@@ -29,6 +29,7 @@ const ThankYouScreen = () => {
     setShowThankYouAfterAuth,
     showThankYouAfterAuth,
     profileJustCompletedForNav,
+    updateUserProfileOptimistic, // ✅ NEW: For updating local state
   } = useUserStore();
 
   // --- Animation Logic for Cal Jumping ---
@@ -58,8 +59,24 @@ const ThankYouScreen = () => {
   }, [bounceValue]);
 
   // --- Navigation Logic (Manual Button Press) ---
-  const handleContinue = () => {
+  const handleContinue = async () => {
     console.log('ThankYouScreen: User clicked Continue. Resetting flags and navigating.');
+
+    // ✅ FIX: If this is a new user (profile incomplete), mark wingman intro as seen
+    const isNewUserIncompleteProfile = userProfile && !userProfile.is_profile_complete;
+    
+    if (isNewUserIncompleteProfile) {
+      console.log('ThankYouScreen: New user - marking wingman prompt as seen before profile setup');
+      try {
+        // Mark as seen in backend (using the API directly since we imported it)
+        const { markWingmanPromptAsSeen } = await import('../../api/api');
+        await markWingmanPromptAsSeen();
+        // ✅ Update store optimistically so calendar won't show intro popup again
+        updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
+      } catch (error) {
+        console.error('ThankYouScreen: Failed to mark wingman prompt as seen:', error);
+      }
+    }
 
     // Reset flags
     if (setProfileJustCompletedForNav) {
@@ -71,10 +88,10 @@ const ThankYouScreen = () => {
 
     // Determine Destination
     if (userProfile && !userProfile.is_profile_complete) {
-      console.log('ThankYouScreen: Profile still incomplete, navigating to /profile.');
+      console.log('ThankYouScreen: Profile incomplete, navigating to /profile.');
       router.replace('/(app)/profile');
     } else {
-      console.log('ThankYouScreen: Profile complete or no profile data, navigating to /calendar.');
+      console.log('ThankYouScreen: Profile complete, navigating to /calendar.');
       router.replace('/(app)/calendar');
     }
   };
