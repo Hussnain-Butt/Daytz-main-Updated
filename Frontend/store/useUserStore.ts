@@ -13,6 +13,7 @@ interface UserState {
   profileJustCompletedForNav: boolean;
   showThankYouAfterAuth: boolean;
   showWelcomeVideo: boolean;
+  showWelcomeBackPopup: boolean; // ✅ NEW: Show Welcome Back popup on calendar
   hasBeenForcedToProfileEdit: boolean;
 
   // This state is no longer needed as we will rely on the userProfile's property
@@ -28,6 +29,7 @@ interface UserState {
   setShowThankYouAfterAuth: (show: boolean) => void;
   clearShowThankYouAfterAuth: () => void;
   setShowWelcomeVideo: (show: boolean) => void;
+  setShowWelcomeBackPopup: (show: boolean) => void; // ✅ NEW: Control Welcome Back popup
   setHasBeenForcedToProfileEdit: (hasBeenForced: boolean) => void;
 
   // This action is also no longer needed
@@ -45,6 +47,7 @@ export const useUserStore = create<UserState>((set) => ({
   profileJustCompletedForNav: false,
   showThankYouAfterAuth: false,
   showWelcomeVideo: false,
+  showWelcomeBackPopup: false, // ✅ NEW: Initial state
   hasBeenForcedToProfileEdit: false,
 
   // --- Actions ---
@@ -92,6 +95,7 @@ export const useUserStore = create<UserState>((set) => ({
       profileJustCompletedForNav: false,
       showThankYouAfterAuth: false,
       showWelcomeVideo: false,
+      showWelcomeBackPopup: false, // ✅ Clear on logout
       hasBeenForcedToProfileEdit: false,
     });
   },
@@ -106,6 +110,7 @@ export const useUserStore = create<UserState>((set) => ({
     set({ showThankYouAfterAuth: false });
   },
   setShowWelcomeVideo: (show) => set({ showWelcomeVideo: show }),
+  setShowWelcomeBackPopup: (show) => set({ showWelcomeBackPopup: show }), // ✅ NEW: Setter
   setHasBeenForcedToProfileEdit: (hasBeenForced) =>
     set({ hasBeenForcedToProfileEdit: hasBeenForced }),
 }));

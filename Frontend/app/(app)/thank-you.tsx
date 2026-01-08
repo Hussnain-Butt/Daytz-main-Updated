@@ -13,6 +13,7 @@ import {
   Easing,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '../../store/useUserStore';
@@ -97,31 +98,46 @@ const ThankYouScreen = () => {
   };
 
   // --- Text Logic ---
+  // ✅ FIX: Wait for userProfile to load before showing ANY text (prevents flash)
+  const isLoading = !userProfile;
+  
   let titleText = "Hi, I'm Cal...";
   let messageText = "I'm going to be your personal wingman while using the Daytz app.";
   let showSubMessage = false;
 
-  if (showThankYouAfterAuth) {
-    // Check if user has complete profile (returning user) or not (new user)
-    const isReturningUser = userProfile?.is_profile_complete === true;
-    
-    if (isReturningUser) {
-      // Returning User Login State
-      titleText = 'Welcome Back!';
-      messageText = "Let's get back to meeting new people and creating new experiences together.";
-      showSubMessage = false;
-    } else {
-      // New User / First Time Login State
-      titleText = 'Welcome!';
-      messageText =
-        'You have taken your first step to getting out and meeting new people! Congratulations!';
+  // Only determine text AFTER userProfile is loaded
+  if (userProfile) {
+    if (showThankYouAfterAuth) {
+      // Check if user has complete profile (returning user) or not (new user)
+      const isReturningUser = userProfile.is_profile_complete === true;
+      
+      if (isReturningUser) {
+        // Returning User Login State
+        titleText = 'Welcome Back!';
+        messageText = "Let's get back to meeting new people and creating new experiences together.";
+        showSubMessage = false;
+      } else {
+        // New User / First Time Login State
+        titleText = 'Welcome!';
+        messageText =
+          'You have taken your first step to getting out and meeting new people! Congratulations!';
+        showSubMessage = true;
+      }
+    } else if (profileJustCompletedForNav) {
+      // Profile Completion State
+      titleText = 'Profile Complete!';
+      messageText = 'Thank you for setting up your profile.';
       showSubMessage = true;
     }
-  } else if (profileJustCompletedForNav) {
-    // Profile Completion State
-    titleText = 'Profile Complete!';
-    messageText = 'Thank you for setting up your profile.';
-    showSubMessage = true;
+  }
+
+  // ✅ FIX: Show loading while we wait for userProfile to determine correct message
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </SafeAreaView>
+    );
   }
 
   return (

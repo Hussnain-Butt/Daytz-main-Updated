@@ -500,16 +500,28 @@ const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }
   );
   const isDateInPast = !!localDateTime && isPast(localDateTime);
   const hasGivenFeedback = !!item.myOutcome;
+  const currentUserId = useUserStore.getState().userProfile?.userId;
+
+  // Check normal pending states
   const isPendingMyResponse =
     item.status === 'pending' &&
-    ((item.userFrom === useUserStore.getState().userProfile?.userId && !item.userFromApproved) ||
-      (item.userTo === useUserStore.getState().userProfile?.userId && !item.userToApproved));
-  const isConflictPending = item.status === 'pending_conflict';
-  // NEW: Check if I've already responded but waiting for other user
+    ((item.userFrom === currentUserId && !item.userFromApproved) ||
+      (item.userTo === currentUserId && !item.userToApproved));
+
+  // ✅ New Logic: Conflict Handling
+  // Only the RECIPIENT of the conflict (userTo) should resolve it.
+  const isConflictPending = item.status === 'pending_conflict' && item.userTo === currentUserId;
+
+  // The SENDER (userFrom) should just see "waiting"
+  const isConflictWaiting = item.status === 'pending_conflict' && item.userFrom === currentUserId;
+
+  // Check awaiting response
   const isAwaitingTheirResponse =
-    item.status === 'pending' &&
-    ((item.userFrom === useUserStore.getState().userProfile?.userId && item.userFromApproved && !item.userToApproved) ||
-      (item.userTo === useUserStore.getState().userProfile?.userId && item.userToApproved && !item.userFromApproved));
+    (item.status === 'pending' &&
+      ((item.userFrom === currentUserId && item.userFromApproved && !item.userToApproved) ||
+        (item.userTo === currentUserId && item.userToApproved && !item.userFromApproved))) ||
+    isConflictWaiting; // ✅ Treat conflict waiting same as normal waiting
+
   return (
     <TouchableOpacity style={styles.upcomingItem} onPress={() => onPress(item)}>
       <Avatar.Image size={52} source={{ uri: item.otherUser.profilePictureUrl }} />
@@ -586,7 +598,7 @@ const UpcomingDateItem = ({ item, onPress, onRatePress, onResolveConflictPress }
 
 const CalendarHomeScreen = () => {
   const { auth0User, isReady: isAuthReady, isLoading: isAuthLoading } = useAuth();
-  const { userProfile, updateUserProfileOptimistic } = useUserStore();
+  const { userProfile, updateUserProfileOptimistic, showThankYouAfterAuth, setShowThankYouAfterAuth, showWelcomeBackPopup, setShowWelcomeBackPopup } = useUserStore();
   const router = useRouter();
 
   const [isCalendarLoading, setIsCalendarLoading] = useState(true);
@@ -611,14 +623,94 @@ const CalendarHomeScreen = () => {
   const [layouts, setLayouts] = useState<any>({});
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // ✅ NEW: Wingman Intro State (Multi-step popup)
+  // ✅ Wingman Intro State (Multi-step popup)
   const [wingmanIntroStep, setWingmanIntroStep] = useState<number | null>(null);
+  
+  // ✅ NEW: Welcome Back Popup State for returning users
+  const [welcomeBackPopupVisible, setWelcomeBackPopupVisible] = useState(false);
 
   // Refs for precise measurement (FIX FOR OVERLAY POSITION)
   const headerRef = useRef<View>(null);
-  const notificationRef = useRef<View>(null); // ✅ NEW REF FOR NOTIFICATION ICON
+  const notificationRef = useRef<View>(null);
   const calendarRef = useRef<View>(null);
-  const plansRef = useRef<View>(null);
+  const bottomNavRef = useRef<View>(null);
+
+  // useEffect for Tutorial Step Changes
+  useEffect(() => {
+    if (tutorialStep !== null && scrollViewRef.current) {
+      const step = TUTORIAL_STEPS[tutorialStep];
+      if (step?.scrollTo) {
+        scrollViewRef.current.scrollTo({ y: step.scrollTo, animated: true });
+      }
+    }
+  }, [tutorialStep, isCalendarLoading]);
+
+  // ✅ Wingman Prompt for NEW users who just completed profile setup
+  const { profileJustCompletedForNav } = useUserStore();
+  const [wingmanCheckComplete, setWingmanCheckComplete] = useState(false);
+  
+  useEffect(() => {
+    if (!userProfile) {
+      return;
+    }
+    
+    if (userProfile.is_profile_complete === true) {
+      setWingmanCheckComplete(true);
+      return;
+    }
+    
+    if (userProfile.hasSeenWingmanPrompt === true) {
+      setWingmanCheckComplete(true);
+      return;
+    }
+    
+    if (!profileJustCompletedForNav) {
+      setWingmanCheckComplete(true);
+      return;
+    }
+    
+    if (!userProfile?.hasSeenCalendarTutorial) {
+      setWingmanCheckComplete(true);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      if (profileJustCompletedForNav && !userProfile.hasSeenWingmanPrompt) {
+        setWingmanIntroStep(0);
+      }
+      setWingmanCheckComplete(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+    
+  }, [profileJustCompletedForNav, userProfile?.hasSeenCalendarTutorial, userProfile?.hasSeenWingmanPrompt, userProfile?.is_profile_complete, userProfile]);
+
+  // ✅ Handler for Wingman Intro Next button
+  const handleWingmanIntroNext = () => {
+    if (wingmanIntroStep !== null && wingmanIntroStep < WINGMAN_INTRO_MESSAGES.length - 1) {
+      setWingmanIntroStep(wingmanIntroStep + 1);
+    }
+  };
+
+  // ✅ Handler for Wingman Intro Finish
+  const handleWingmanIntroFinish = async () => {
+    setWingmanIntroStep(null);
+    try {
+      await markWingmanPromptAsSeen();
+      updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
+    } catch (error) {
+      console.error('Failed to mark wingman prompt as seen:', error);
+    }
+  };
+
+  // ✅ NEW: Show Welcome Back popup for returning users (NO routing, NO flash)
+  useEffect(() => {
+    if (showWelcomeBackPopup && userProfile?.is_profile_complete) {
+      console.log('[Calendar] Showing Welcome Back popup for returning user');
+      setWelcomeBackPopupVisible(true);
+      setShowWelcomeBackPopup(false); // Clear flag immediately
+    }
+  }, [showWelcomeBackPopup, userProfile, setShowWelcomeBackPopup]);
 
   // Function to measure layout in absolute window coordinates
   // This solves the issue where highlight is shifted up by header height
@@ -649,8 +741,8 @@ const CalendarHomeScreen = () => {
         setLayouts((prev) => ({ ...prev, calendar: { x, y, width, height } }));
       });
     }
-    if (plansRef.current) {
-      plansRef.current.measureInWindow((x, y, width, height) => {
+    if (bottomNavRef.current) {
+      bottomNavRef.current.measureInWindow((x, y, width, height) => {
         setLayouts((prev) => ({ ...prev, plans: { x, y, width, height } }));
       });
     }
@@ -664,72 +756,7 @@ const CalendarHomeScreen = () => {
     }
   }, [tutorialStep, isCalendarLoading]);
 
-  // ✅ FIX: Wingman Prompt ONLY for NEW users who just completed profile setup
-  // This popup should NEVER show for returning users (even briefly)
-  const { profileJustCompletedForNav } = useUserStore();
-  
-  // ✅ NEW: Track if we've checked the wingman state (prevents flash)
-  const [wingmanCheckComplete, setWingmanCheckComplete] = useState(false);
-  
-  useEffect(() => {
-    // ✅ CRITICAL FIX: Wait for userProfile to be fully loaded before any decision
-    if (!userProfile) {
-      return; // Don't do anything until profile is loaded
-    }
-    
-    // ✅ CRITICAL: If user has already seen the wingman prompt, mark check complete and exit
-    if (userProfile.hasSeenWingmanPrompt === true) {
-      setWingmanCheckComplete(true);
-      return; // NEVER show intro for returning users
-    }
-    
-    // ✅ CRITICAL: Only show for NEW users who JUST completed their profile
-    // profileJustCompletedForNav is ONLY true immediately after profile setup
-    // Returning users will NEVER have this flag set
-    if (!profileJustCompletedForNav) {
-      setWingmanCheckComplete(true);
-      return; // Early exit - no popup for returning users
-    }
-    
-    // Additional safety check - must have seen calendar tutorial first
-    if (!userProfile?.hasSeenCalendarTutorial) {
-      setWingmanCheckComplete(true);
-      return;
-    }
-    
-    // ✅ NEW: Small delay to ensure no flash (let other UI settle first)
-    const timer = setTimeout(() => {
-      // Double-check the flag hasn't changed
-      if (profileJustCompletedForNav && !userProfile.hasSeenWingmanPrompt) {
-        setWingmanIntroStep(0);
-      }
-      setWingmanCheckComplete(true);
-    }, 300);
-    
-    return () => clearTimeout(timer);
-    
-  }, [profileJustCompletedForNav, userProfile?.hasSeenCalendarTutorial, userProfile?.hasSeenWingmanPrompt, userProfile]);
-
-  // ✅ NEW: Handler for Wingman Intro Next button
-  const handleWingmanIntroNext = () => {
-    if (wingmanIntroStep !== null && wingmanIntroStep < WINGMAN_INTRO_MESSAGES.length - 1) {
-      setWingmanIntroStep(wingmanIntroStep + 1);
-    }
-  };
-
-  // ✅ NEW: Handler for Wingman Intro Finish
-  const handleWingmanIntroFinish = async () => {
-    setWingmanIntroStep(null);
-    // Mark as seen so it doesn't show again
-    try {
-      await markWingmanPromptAsSeen();
-      updateUserProfileOptimistic({ hasSeenWingmanPrompt: true });
-    } catch (error) {
-      console.error('Failed to mark wingman prompt as seen:', error);
-    }
-  };
-
-  const showPopup = (title, message, type = 'error') =>
+  const showPopup = (title: string, message: string, type = 'success') =>
     setPopupState({ visible: true, type, title, message });
 
   const fetchAllScreenData = useCallback(async () => {
@@ -996,7 +1023,7 @@ const CalendarHomeScreen = () => {
         )}
 
         <View
-          ref={plansRef} // ✅ Added ref for window measurement
+          ref={bottomNavRef} // ✅ Added ref for window measurement
           style={styles.upcomingSection}
           onLayout={updateLayouts}>
           <Text style={styles.upcomingTitle}>Upcoming & Past Plans</Text>
@@ -1052,8 +1079,7 @@ const CalendarHomeScreen = () => {
         onFinish={handleFinishTutorial}
       />
       
-      {/* ✅ NEW: Wingman Intro Popup (Multi-step) */}
-      {/* ✅ FIX: Only render when check is complete to prevent flash */}
+      {/* ✅ Wingman Intro Popup (Multi-step) */}
       {wingmanCheckComplete && (
         <WingmanIntroPopup
           visible={wingmanIntroStep !== null}
@@ -1065,6 +1091,16 @@ const CalendarHomeScreen = () => {
           onFinish={handleWingmanIntroFinish}
         />
       )}
+
+      {/* ✅ NEW: Welcome Back Popup for Returning Users (ON CALENDAR, NO ROUTING) */}
+      <BubblePopup
+        visible={welcomeBackPopupVisible}
+        type="success"
+        title="Welcome Back!"
+        message="Let's get back to meeting new people and creating new experiences together."
+        buttonText="Let's Go!"
+        onClose={() => setWelcomeBackPopupVisible(false)}
+      />
     </SafeAreaView>
   );
 };

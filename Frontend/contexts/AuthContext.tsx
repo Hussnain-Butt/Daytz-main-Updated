@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isReady, setIsReady] = useState<boolean>(false);
   const processedCodeRef = useRef<string | null>(null);
 
-  const { clearUserProfile, setShowThankYouAfterAuth, setShowWelcomeVideo, setUserProfile } =
+  const { clearUserProfile, setShowThankYouAfterAuth, setShowWelcomeVideo, setShowWelcomeBackPopup, setUserProfile } =
     useUserStore();
 
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'com.daytz.app', path: 'callback' });
@@ -227,13 +227,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setSession(newSession);
           setAuth0User(userInfo);
 
-          // ✅ CORRECT LOGIC: New users see welcome flow, existing users see thank-you once
+          // ✅ BETTER APPROACH: New users see welcome flow, returning users see popup on calendar
           if (profileResult.isNewUser) {
             setShowWelcomeVideo(true);
             setShowThankYouAfterAuth(false);
           } else {
+            // ✅ Returning users - go to calendar, show Welcome Back popup there
             setShowWelcomeVideo(false);
-            setShowThankYouAfterAuth(true);
+            setShowThankYouAfterAuth(false);  // ← No routing to thank-you
+            setShowWelcomeBackPopup(true);    // ← Show popup on calendar instead
           }
           setIsReady(true);
         } else {

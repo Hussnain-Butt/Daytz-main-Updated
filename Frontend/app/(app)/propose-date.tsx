@@ -311,6 +311,34 @@ const ProposeDateScreen = () => {
   };
 
   const handleTimeConfirm = (time: Date) => {
+    // ✅ Check if selecting time for today
+    if (selectedEventDate) {
+      const today = new Date();
+      const isToday =
+        selectedEventDate.getDate() === today.getDate() &&
+        selectedEventDate.getMonth() === today.getMonth() &&
+        selectedEventDate.getFullYear() === today.getFullYear();
+
+      if (isToday) {
+        // ✅ Compare selected time with current time
+        const selectedDateTime = new Date(selectedEventDate);
+        selectedDateTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
+
+        const now = new Date();
+
+        if (selectedDateTime <= now) {
+          // ✅ Past time selected - show error
+          showPopup(
+            'Invalid Time',
+            'You cannot schedule a date at a time that has already passed. Please select a future time.',
+            'error'
+          );
+          setShowTimePicker(false);
+          return;
+        }
+      }
+    }
+
     setSelectedTime(time);
     setShowTimePicker(false);
   };
