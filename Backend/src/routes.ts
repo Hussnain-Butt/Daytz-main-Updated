@@ -10,6 +10,7 @@ import * as dateHandlers from './handlers/dateHandlers'
 import * as transactionHandler from './handlers/transactionHandlers'
 import * as videoHandler from './handlers/videoHandlers'
 import * as notificationHandler from './handlers/notificationHandlers'
+import * as reportHandlers from './handlers/reportHandlers'
 
 const router = express.Router()
 console.log('BACKEND ROUTES: Router instance created.')
@@ -168,6 +169,14 @@ router.get(
   ...protectedReadMiddleware,
   asyncHandler(videoHandler.getVideoPlayableUrlHandler),
 )
+
+// --- REPORT ROUTES ---
+router.post(
+  '/reports/submit',
+  ...protectedRouteMiddleware,
+  asyncHandler(reportHandlers.submitReportHandler),
+)
+
 router.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() })
 })

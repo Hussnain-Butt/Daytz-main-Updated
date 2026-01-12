@@ -410,3 +410,21 @@ export const getUpcomingDates = async (): Promise<AxiosResponse<UpcomingDate[]>>
     throw e;
   }
 };
+
+// --- REPORT API ---
+export interface SubmitReportPayload {
+  reportedUserId: string;
+  reportedVideoId: number;
+  reportReason: string;
+  date: string;
+}
+
+export const submitStoryReport = async (
+  payload: SubmitReportPayload
+): Promise<AxiosResponse<{ message: string; reportId: string }>> => {
+  try {
+    return await apiClient.post<{ message: string; reportId: string }>('/reports/submit', payload);
+  } catch (e) {
+    throw e;
+  }
+};

@@ -33,6 +33,8 @@ import {
   getAttractionByUserFromUserToAndDate,
   blockUser as apiBlockUser,
   unblockUser as apiUnblockUser,
+  submitStoryReport,
+  SubmitReportPayload,
 } from '../../api/api';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,6 +51,7 @@ const UNBLOCK_ICON = require('../../assets/unblockIcon.png');
 const DEFAULT_PROFILE_PIC = require('../../assets/characterIcon.png');
 const calcHappyIcon = require('../../assets/calc-happy.png');
 const calcErrorIcon = require('../../assets/calc-error.png');
+const REPORT_ICON = require('../../assets/blockIcon.png'); // Using block icon for report button
 
 // --- CAL'S ROTATING PROMPTS (WHO) ---
 const WHO_PROMPTS = [
@@ -57,6 +60,15 @@ const WHO_PROMPTS = [
   "Pick someone you'd like to spend time with.",
   "Who's on your mind right now?",
   'Choose a person to make plans with!',
+];
+
+// --- REPORT REASONS ---
+const REPORT_REASONS = [
+  'Inappropriate Image (Nudity/Graphic)',
+  'Inappropriate Speech (Verbal Abuse/Slandering/etc..)',
+  'Inappropriate Video (Pornographic/Nudity/Graphic)',
+  'Hate Speech (Racism/Sexism/etc)',
+  'Spam / Advertisement',
 ];
 let whoPromptIndex = 0;
 
@@ -313,6 +325,67 @@ const styles = StyleSheet.create({
     fontSize: scaleSize(15),
     fontWeight: 'bold',
   },
+  reportModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  reportModalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: colors.GreyDark || '#1E1E1E',
+    borderRadius: 20,
+    padding: 20,
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  reportModalTitle: {
+    fontSize: scaleSize(22),
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  reportOptionsList: {
+    marginBottom: 20,
+  },
+  reportOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  reportOptionText: {
+    color: '#FFF',
+    fontSize: scaleSize(15),
+  },
+  reportModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  reportModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  reportCancelButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: 10,
+  },
+  reportSubmitButton: {
+    backgroundColor: colors.PinkPrimary || '#FF6B6B',
+  },
+  reportButtonText: {
+    color: '#FFF',
+    fontSize: scaleSize(16),
+    fontWeight: 'bold',
+  },
 });
 
 const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => {
@@ -332,6 +405,69 @@ const BubblePopup = ({ visible, type, title, message, buttonText, onClose }) => 
               <Text style={isSuccess ? styles.successButtonText : styles.errorButtonText}>
                 {buttonText}
               </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// Report Modal Component
+const ReportModal = ({ visible, onClose, onSubmit, isSubmitting }) => {
+  const [selectedReason, setSelectedReason] = useState<string | null>(null);
+
+  const handleSubmit = () => {
+    if (selectedReason) {
+      onSubmit(selectedReason);
+    }
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
+      <View style={styles.reportModalOverlay}>
+        <View style={styles.reportModalContent}>
+          <View style={styles.reportModalHeader}>
+            <Text style={styles.reportModalTitle}>Report Story</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={scaleSize(28)} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.reportOptionsList}>
+            {REPORT_REASONS.map((reason, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.reportOption,
+                  selectedReason === reason && { backgroundColor: colors.PinkPrimary || '#FF6B6B' },
+                ]}
+                onPress={() => setSelectedReason(reason)}>
+                <Text style={styles.reportOptionText}>{reason}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.reportModalButtons}>
+            <TouchableOpacity
+              style={[styles.reportModalButton, styles.reportCancelButton]}
+              onPress={onClose}
+              disabled={isSubmitting}>
+              <Text style={styles.reportButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.reportModalButton,
+                styles.reportSubmitButton,
+                !selectedReason && { opacity: 0.5 },
+              ]}
+              onPress={handleSubmit}
+              disabled={!selectedReason || isSubmitting}>
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.reportButtonText}>Submit</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -423,6 +559,7 @@ const StoryPage = React.memo(
     onNavigateToAttraction,
     onBlockUser,
     onUnblockUser,
+    onReportUser,
     isAttractionDisabled,
   }) => {
     const panGesture = Gesture.Pan()
@@ -463,7 +600,7 @@ const StoryPage = React.memo(
               <Video
                 ref={videoRef}
                 style={styles.videoElement}
-                source={{ uri: playableUrl }}
+                source={{ uri: decodeURIComponent(playableUrl) }}
                 resizeMode={ResizeMode.COVER}
                 isLooping={storiesCount === 1}
                 shouldPlay={false}
@@ -570,6 +707,14 @@ const StoryPage = React.memo(
                     <Text style={styles.actionButtonText}>Block</Text>
                   </TouchableOpacity>
                 )}
+                {/* ✅ NEW: Report Button */}
+                <TouchableOpacity
+                  onPress={onReportUser}
+                  style={[styles.actionButton, isBlocked && styles.disabledActionButton]}
+                  disabled={isBlocked}>
+                  <Ionicons name="flag" size={scaleSize(45)} color="#FFF" />
+                  <Text style={styles.actionButtonText}>Report</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </SafeAreaView>
@@ -611,6 +756,12 @@ export default function StoriesScreen() {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const [selectedUserIdForModal, setSelectedUserIdForModal] = useState<string | null>(null);
   const snapPoints = useMemo(() => ['60%', '85%'], []);
+
+  // Report modal state
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportingUserId, setReportingUserId] = useState<string | null>(null);
+  const [reportingVideoId, setReportingVideoId] = useState<number | null>(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const flatListRef = useRef<FlatList<StoryWithKey>>(null);
   const videoRefs = useRef<Record<string, Video | null>>({});
@@ -868,6 +1019,64 @@ export default function StoriesScreen() {
     [playCurrentVideo, updateStoryInState]
   );
 
+  const reportUser = useCallback(
+    (userId: string, videoId: number) => {
+      setReportingUserId(userId);
+      setReportingVideoId(videoId);
+      setReportModalVisible(true);
+      pauseAllVideos();
+    },
+    [pauseAllVideos]
+  );
+
+  const handleReportSubmit = useCallback(
+    async (reportReason: string) => {
+      if (!reportingUserId || !reportingVideoId || !storyDate) {
+        showPopup('Error', 'Missing report information.', 'error');
+        return;
+      }
+
+      setIsSubmittingReport(true);
+
+      try {
+        const payload: SubmitReportPayload = {
+          reportedUserId: reportingUserId,
+          reportedVideoId: reportingVideoId,
+          reportReason,
+          date: storyDate,
+        };
+
+        await submitStoryReport(payload);
+        
+        setReportModalVisible(false);
+        setReportingUserId(null);
+        setReportingVideoId(null);
+        
+        showPopup(
+          'Report Submitted',
+          'Thank you for your report. We will review it and take appropriate action.',
+          'success'
+        );
+        playCurrentVideo();
+      } catch (error: any) {
+        console.error('[StoriesScreen] Error submitting report:', error);
+        const errorMessage =
+          error.response?.data?.message || 'Failed to submit report. Please try again.';
+        showPopup('Error', errorMessage, 'error');
+      } finally {
+        setIsSubmittingReport(false);
+      }
+    },
+    [reportingUserId, reportingVideoId, storyDate, playCurrentVideo]
+  );
+
+  const handleReportModalClose = useCallback(() => {
+    setReportModalVisible(false);
+    setReportingUserId(null);
+    setReportingVideoId(null);
+    playCurrentVideo();
+  }, [playCurrentVideo]);
+
   const handlePresentModalPress = useCallback((userId: string) => {
     setSelectedUserIdForModal(userId);
     bottomSheetModalRef.current?.present();
@@ -978,6 +1187,7 @@ export default function StoriesScreen() {
           onNavigateToAttraction={() => navigateToAttraction(item.userId)}
           onBlockUser={() => blockUser(item.userId, item.userName)}
           onUnblockUser={() => unblockUser(item.userId, item.userName)}
+          onReportUser={() => reportUser(item.userId, item.calendarId)}
           isAttractionDisabled={item.hasExistingAttraction}
         />
       );
@@ -992,6 +1202,7 @@ export default function StoriesScreen() {
       navigateToAttraction,
       blockUser,
       unblockUser,
+      reportUser,
       handlePresentModalPress,
       onVideoTap,
       currentVideoProgress,
@@ -1088,6 +1299,12 @@ export default function StoriesScreen() {
         message={popupState.message}
         buttonText="OK"
         onClose={() => setPopupState((prev) => ({ ...prev, visible: false }))}
+      />
+      <ReportModal
+        visible={reportModalVisible}
+        onClose={handleReportModalClose}
+        onSubmit={handleReportSubmit}
+        isSubmitting={isSubmittingReport}
       />
     </View>
   );
