@@ -5,9 +5,11 @@ import { Request, Response } from 'express'
 import { body, validationResult } from 'express-validator'
 import moment from 'moment-timezone'
 import EmailService from '../services/external/EmailService'
+import UserService from '../services/internal/UserService'
 import { SubmitReportRequest, ReportReason, ReportEmailData } from '../types/Report'
 
 const emailService = new EmailService()
+const userService = new UserService()
 
 /**
  * Handler for submitting a story report
@@ -46,10 +48,16 @@ export const submitReportHandler = async (req: Request, res: Response) => {
       })
     }
 
+    // ✅ NEW: Fetch user details for better email formatting
+    const [reportedUser, reportingUser] = await Promise.all([
+      userService.getUserById(reportedUserId),
+      userService.getUserById(reportingUserId),
+    ])
+
     // Get current time in PST timezone
     const reportTimePST = moment().tz('America/Los_Angeles').format('YYYY-MM-DD hh:mm:ss A')
 
-    // Prepare email data
+    // Prepare email data with user details
     const emailData: ReportEmailData = {
       reportedUserId,
       reportingUserId,
@@ -57,6 +65,15 @@ export const submitReportHandler = async (req: Request, res: Response) => {
       reportedVideoId,
       reportDate: date,
       reportTime: reportTimePST,
+      // ✅ NEW: Add user names and emails
+      reportedUserName: reportedUser
+        ? `${reportedUser.firstName} ${reportedUser.lastName}`.trim()
+        : 'Unknown User',
+      reportedUserEmail: reportedUser?.email || 'N/A',
+      reportingUserName: reportingUser
+        ? `${reportingUser.firstName} ${reportingUser.lastName}`.trim()
+        : 'Unknown User',
+      reportingUserEmail: reportingUser?.email || 'N/A',
     }
 
     // Send report email

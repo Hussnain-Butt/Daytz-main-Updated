@@ -23,4 +23,9 @@ export interface ReportEmailData {
   reportedVideoId: number
   reportDate: string // YYYY-MM-DD
   reportTime: string // PST timezone formatted time
+  // ✅ NEW: User details for better email readability
+  reportedUserName?: string
+  reportedUserEmail?: string
+  reportingUserName?: string
+  reportingUserEmail?: string
 }

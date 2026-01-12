@@ -87,13 +87,21 @@ class EmailService {
 New User Report Submitted
 ========================
 
-Reported User ID: ${reportData.reportedUserId}
-Reported Video/Image ID: ${reportData.reportedVideoId}
-Report Date: ${reportData.reportDate}
-Report Time: ${reportData.reportTime} (PST)
-Reporting User ID: ${reportData.reportingUserId}
+REPORTED USER:
+- Name: ${reportData.reportedUserName || 'Unknown'}
+- Email: ${reportData.reportedUserEmail || 'N/A'}
+- User ID: ${reportData.reportedUserId}
 
-Report Reason: ${reportData.reportReason}
+REPORTING USER:
+- Name: ${reportData.reportingUserName || 'Unknown'}
+- Email: ${reportData.reportingUserEmail || 'N/A'}
+- User ID: ${reportData.reportingUserId}
+
+REPORT DETAILS:
+- Video/Image ID: ${reportData.reportedVideoId}
+- Report Date: ${reportData.reportDate}
+- Report Time: ${reportData.reportTime} (PST)
+- Reason: ${reportData.reportReason}
 
 Please review this report as soon as possible.
     `.trim()
@@ -112,42 +120,85 @@ Please review this report as soon as possible.
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
     .header { background-color: #ff6b6b; color: white; padding: 20px; text-align: center; }
     .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
-    .field { margin-bottom: 15px; }
+    .section { margin-bottom: 20px; padding: 15px; background: white; border-radius: 5px; }
+    .section-title { 
+      font-weight: bold; 
+      color: #ff6b6b; 
+      font-size: 16px; 
+      margin-bottom: 10px;
+      border-bottom: 2px solid #ff6b6b;
+      padding-bottom: 5px;
+    }
+    .field { margin-bottom: 10px; }
     .label { font-weight: bold; color: #555; }
     .value { color: #000; margin-left: 10px; }
+    .user-name { font-size: 18px; color: #ff6b6b; font-weight: bold; }
+    .user-email { color: #0066cc; }
     .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #888; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h2>New User Report Submitted</h2>
+      <h2>🚨 New User Report Submitted</h2>
     </div>
     <div class="content">
-      <div class="field">
-        <span class="label">Reported User ID:</span>
-        <span class="value">${reportData.reportedUserId}</span>
+      
+      <!-- Reported User Section -->
+      <div class="section">
+        <div class="section-title">👤 REPORTED USER</div>
+        <div class="field">
+          <span class="label">Name:</span>
+          <span class="value user-name">${reportData.reportedUserName || 'Unknown User'}</span>
+        </div>
+        <div class="field">
+          <span class="label">Email:</span>
+          <span class="value user-email">${reportData.reportedUserEmail || 'N/A'}</span>
+        </div>
+        <div class="field">
+          <span class="label">User ID:</span>
+          <span class="value">${reportData.reportedUserId}</span>
+        </div>
       </div>
-      <div class="field">
-        <span class="label">Reported Video/Image ID:</span>
-        <span class="value">${reportData.reportedVideoId}</span>
+
+      <!-- Reporting User Section -->
+      <div class="section">
+        <div class="section-title">📝 REPORTING USER</div>
+        <div class="field">
+          <span class="label">Name:</span>
+          <span class="value user-name">${reportData.reportingUserName || 'Unknown User'}</span>
+        </div>
+        <div class="field">
+          <span class="label">Email:</span>
+          <span class="value user-email">${reportData.reportingUserEmail || 'N/A'}</span>
+        </div>
+        <div class="field">
+          <span class="label">User ID:</span>
+          <span class="value">${reportData.reportingUserId}</span>
+        </div>
       </div>
-      <div class="field">
-        <span class="label">Report Date:</span>
-        <span class="value">${reportData.reportDate}</span>
+
+      <!-- Report Details Section -->
+      <div class="section">
+        <div class="section-title">📋 REPORT DETAILS</div>
+        <div class="field">
+          <span class="label">Video/Image ID:</span>
+          <span class="value">${reportData.reportedVideoId}</span>
+        </div>
+        <div class="field">
+          <span class="label">Report Date:</span>
+          <span class="value">${reportData.reportDate}</span>
+        </div>
+        <div class="field">
+          <span class="label">Report Time:</span>
+          <span class="value">${reportData.reportTime} (PST)</span>
+        </div>
+        <div class="field">
+          <span class="label">Report Reason:</span>
+          <span class="value"><strong>${reportData.reportReason}</strong></span>
+        </div>
       </div>
-      <div class="field">
-        <span class="label">Report Time:</span>
-        <span class="value">${reportData.reportTime} (PST)</span>
-      </div>
-      <div class="field">
-        <span class="label">Reporting User ID:</span>
-        <span class="value">${reportData.reportingUserId}</span>
-      </div>
-      <div class="field">
-        <span class="label">Report Reason:</span>
-        <span class="value"><strong>${reportData.reportReason}</strong></span>
-      </div>
+
     </div>
     <div class="footer">
       <p>This is an automated report from Daytz application.</p>
