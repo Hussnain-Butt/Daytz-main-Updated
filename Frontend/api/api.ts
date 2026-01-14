@@ -428,3 +428,29 @@ export const submitStoryReport = async (
     throw e;
   }
 };
+
+// --- DATE MESSAGE API ---
+export interface SendDateMessagePayload {
+  messageType: string;
+  includePhoneNumber: boolean;
+  phoneNumber?: string;
+}
+
+export const sendDateMessage = async (
+  dateId: string,
+  payload: SendDateMessagePayload,
+): Promise<AxiosResponse> => {
+  try {
+    return await apiClient.post(`/dates/${dateId}/message`, payload);
+  } catch (e) {
+    throw e;
+  }
+};
+
+export const getDateMessageStatus = async (dateId: string): Promise<AxiosResponse<any>> => {
+  try {
+    return await apiClient.get(`/dates/${dateId}/message-status`);
+  } catch (e) {
+    throw e;
+  }
+};

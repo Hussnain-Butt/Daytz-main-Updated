@@ -32,6 +32,7 @@ class DatesRepository {
     date: string,
     time: string,
     client: PoolClient | null = null,
+    dateIdToExclude: number | null = null, // ✅ NEW: Exclude current date when rescheduling
   ): Promise<DateType[]> {
     const db = client || pool
     // ✅ 1.5 hour buffer: 90 minutes before and after each date
@@ -41,9 +42,10 @@ class DatesRepository {
         date::date = $1::date
         AND (user_from = ANY($2::text[]) OR user_to = ANY($2::text[]))
         AND status IN ('pending', 'approved')
-        AND ($3::time) BETWEEN (time - INTERVAL '90 minutes') AND (time + INTERVAL '90 minutes');
+        AND ($3::time) BETWEEN (time - INTERVAL '90 minutes') AND (time + INTERVAL '90 minutes')
+        AND ($4::int IS NULL OR date_id != $4);
     `
-    const { rows } = await db.query(query, [date, userIds, time])
+    const { rows } = await db.query(query, [date, userIds, time, dateIdToExclude])
     return rows.map(mapRowToDate).filter((d): d is DateType => d !== null)
   }
 

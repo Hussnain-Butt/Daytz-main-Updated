@@ -195,33 +195,35 @@ export const updateDateHandler = asyncHandler(
         const newTime = time || dateToUpdate.time
 
         if (newTime) {
-          // Check for conflict for the person rescheduling
-          const conflictForUpdater = await datesService.getConfirmedDateAtTimeForUser(
-            updaterUserId,
+          // ✅ FIXED: Check for conflicts with 1.5-hour buffer for the person rescheduling
+          const conflictsForUpdater = await datesService.findConflictingDatesForUsers(
+            [updaterUserId],
             newDate,
             newTime,
             undefined, // client parameter
             dateId, // ✅ Exclude the current date from the check
           )
-          if (conflictForUpdater) {
+          if (conflictsForUpdater.length > 0) {
             return res.status(409).json({
-              message: 'This time conflicts with another one of your confirmed dates.',
+              message: 'This time conflicts with another one of your dates (within 1.5 hours).',
               code: 'SCHEDULING_CONFLICT',
+              conflictingDate: conflictsForUpdater[0],
             })
           }
 
-          // Check for conflict for the other person
-          const conflictForRecipient = await datesService.getConfirmedDateAtTimeForUser(
-            otherUserId,
+          // ✅ FIXED: Check for conflicts with 1.5-hour buffer for the other person
+          const conflictsForRecipient = await datesService.findConflictingDatesForUsers(
+            [otherUserId],
             newDate,
             newTime,
             undefined, // client parameter
             dateId, // ✅ Exclude the current date from the check
           )
-          if (conflictForRecipient) {
+          if (conflictsForRecipient.length > 0) {
             return res.status(409).json({
-              message: 'This time is unavailable for the other person.',
+              message: 'This time is unavailable for the other person (within 1.5 hours).',
               code: 'SCHEDULING_CONFLICT',
+              conflictingDate: conflictsForRecipient[0],
             })
           }
         }

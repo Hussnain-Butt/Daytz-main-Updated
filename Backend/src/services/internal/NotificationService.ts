@@ -353,6 +353,40 @@ class NotificationService {
       })
     }
   }
+
+  // ✅ NEW: Send notification for date message (See you soon, Running late, etc.)
+  async sendDateMessageNotification(
+    senderUserId: string,
+    receiverUserId: string,
+    dateId: number,
+    messageType: string,
+    phoneNumber?: string,
+    client: PoolClient | null = null,
+  ) {
+    const senderProfile = await this.getUserProfile(senderUserId, client)
+    if (!senderProfile) return
+
+    const senderName = senderProfile.firstName || 'Someone'
+    const title = `Message from ${senderName}`
+    let body = `${senderName}: ${messageType}`
+    
+    if (phoneNumber) {
+      body += `\n\nPhone: ${phoneNumber}`
+    }
+    
+    const type = 'DATE_MESSAGE'
+    await this.createDbNotification(receiverUserId, body, type, dateId, senderUserId, client)
+    const token = await this.getFcmToken(receiverUserId, client)
+    if (token) {
+      await this.sendFcmNotification(
+        token,
+        title,
+        body,
+        senderProfile.profilePictureUrl,
+        { type, dateId: String(dateId) },
+      )
+    }
+  }
 }
 
 export default NotificationService

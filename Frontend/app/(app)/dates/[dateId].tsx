@@ -34,6 +34,8 @@ import {
   getPlayableVideoUrl,
   isAuthTokenApiError,
   getUpcomingDates,
+  sendDateMessage,
+  getDateMessageStatus,
 } from '../../../api/api';
 import { DetailedDateObject, UpcomingDate } from '../../../types/Date';
 import { Video, ResizeMode } from 'expo-av';
@@ -367,6 +369,128 @@ const RescheduleModal = ({
   );
 };
 
+// ✅ NEW: Message Modal Component
+const MessageModal = ({ visible, onClose, onSend }: any) => {
+  const [step, setStep] = useState(1);
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [includePhone, setIncludePhone] = useState(false);
+  const [phone, setPhone] = useState('');
+
+  const MESSAGE_OPTIONS = [
+    'See You Soon',
+    "I'm running late, please wait",
+    'Something came up. Can we reschedule?',
+  ];
+
+  const handleSend = () => {
+    if (!selectedMessage) return;
+    onSend(selectedMessage, includePhone, phone);
+    // Reset state
+    setStep(1);
+    setSelectedMessage(null);
+    setIncludePhone(false);
+    setPhone('');
+  };
+
+  const handleClose = () => {
+    // Reset state on close
+    setStep(1);
+    setSelectedMessage(null);
+    setIncludePhone(false);
+    setPhone('');
+    onClose();
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.overlay}>
+        <View style={styles.messageModalContainer}>
+          <Image source={calcHappyIcon} style={styles.calImage} />
+          
+          {step === 1 ? (
+            <View style={{ padding: 20 }}>
+              <Text style={styles.calSpeech}>
+                "Hey you got something to say? Tell me and I will let them know"
+              </Text>
+              <Text style={styles.calWarning}>
+                "Keep in mind you can only use this feature 1 time, so be sure to use it on the day of your date."
+              </Text>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.submitModalButton, { marginTop: 16, paddingVertical: 12 }]}
+                onPress={() => setStep(2)}>
+                <Text style={styles.actionButtonText}>Continue</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelModalButton, { marginTop: 8, paddingVertical: 12 }]}
+                onPress={handleClose}>
+                <Text style={styles.actionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 500, padding: 20 }}>
+              <Text style={styles.modalTitle}>Choose a message:</Text>
+              
+              {MESSAGE_OPTIONS.map((msg) => (
+                <TouchableOpacity
+                  key={msg}
+                  style={[
+                    styles.messageOption,
+                    selectedMessage === msg && styles.messageOptionSelected
+                  ]}
+                  onPress={() => setSelectedMessage(msg)}>
+                  <Text style={styles.messageOptionText}>{msg}</Text>
+                </TouchableOpacity>
+              ))}
+              
+              <View style={styles.phoneSection}>
+                <TouchableOpacity 
+                  style={styles.checkboxRow}
+                  onPress={() => setIncludePhone(!includePhone)}>
+                  <Ionicons 
+                    name={includePhone ? 'checkbox' : 'square-outline'}
+                    size={24} 
+                    color={screenColors.GoldPrimary} 
+                  />
+                  <Text style={styles.checkboxLabel}>Include my phone number</Text>
+                </TouchableOpacity>
+                
+                {includePhone && (
+                  <TextInput
+                    style={styles.phoneInput}
+                    placeholder="Enter phone number"
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                    placeholderTextColor={screenColors.textSecondary}
+                  />
+                )}
+              </View>
+              
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.cancelModalButton]}
+                  onPress={handleClose}>
+                  <Text style={styles.actionButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.submitModalButton,
+                    !selectedMessage && styles.disabledButton
+                  ]}
+                  disabled={!selectedMessage}
+                  onPress={handleSend}>
+                  <Text style={styles.actionButtonText}>Send</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const DateDetailScreen = () => {
   const router = useRouter();
   const { dateId } = useLocalSearchParams<{ dateId: string }>();
@@ -389,6 +513,10 @@ const DateDetailScreen = () => {
   const [isRescheduleModalVisible, setRescheduleModalVisible] = useState(false);
   const [myUpcomingDates, setMyUpcomingDates] = useState<UpcomingDate[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // ✅ NEW: Message modal state
+  const [isMessageModalVisible, setMessageModalVisible] = useState(false);
+  const [hasUsedMessage, setHasUsedMessage] = useState(false);
 
   const localDate = useMemo(() => {
     return buildLocalDateTime(dateDetails?.date, dateDetails?.time);
@@ -475,6 +603,22 @@ const DateDetailScreen = () => {
     }
   }, [auth0User, fetchDateDetails]);
 
+  // ✅ NEW: Fetch message status for approved dates
+  useEffect(() => {
+    const fetchMessageStatus = async () => {
+      if (!dateId || !dateDetails || dateDetails.status !== 'approved') return;
+      try {
+        const response = await getDateMessageStatus(dateId as string);
+        setHasUsedMessage(response.data.hasUsed);
+      } catch (error) {
+        console.error('Error fetching message status:', error);
+      }
+    };
+    if (dateDetails?.status === 'approved') {
+      fetchMessageStatus();
+    }
+  }, [dateId, dateDetails]);
+
   const handleUpdateStatus = async (status: 'approved' | 'declined') => {
     if (!dateId || isSubmitting) return;
     setIsSubmitting(true);
@@ -558,14 +702,49 @@ const DateDetailScreen = () => {
     }
   };
 
+  // ✅ NEW: Handle sending date message
+  const handleSendMessage = async (messageType: string, includePhone: boolean, phone: string) => {
+    setMessageModalVisible(false);
+    setIsSubmitting(true);
+    
+    try {
+      await sendDateMessage(dateId as string, {
+        messageType,
+        includePhoneNumber: includePhone,
+        phoneNumber: includePhone ? phone : undefined,
+      });
+      
+      setHasUsedMessage(true);
+      showPopup(
+        'Message Sent!',
+        `Your message has been sent to ${displayUser.firstName}`,
+        'success'
+      );
+    } catch (error: any) {
+      showPopup(
+        'Error',
+        error.response?.data?.message || 'Failed to send message',
+        'error'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderFooter = () => {
     if (!dateDetails || !auth0User) return null;
     const currentUserIsUserFrom = auth0User.sub === dateDetails.userFrom.userId;
     const currentUserIsUserTo = auth0User.sub === dateDetails.userTo.userId;
 
     if (dateDetails.status === 'approved' || dateDetails.status === 'needs_rescheduling') {
+      // ✅ Check if date is in the past
+      const dateDate = parseDateOnlyLocal(dateDetails.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isPastDate = dateDate && dateDate < today;
+
       return (
-        <View style={styles.actionContainer}>
+        <View style={styles.actionContainerThreeButtons}>
           <TouchableOpacity
             style={[styles.actionButton, styles.rescheduleButton]}
             onPress={() => setRescheduleModalVisible(true)}
@@ -574,14 +753,31 @@ const DateDetailScreen = () => {
               Reschedule
             </Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={[styles.actionButton, styles.declineButton]}
             onPress={handleCancelDate}
             disabled={isSubmitting}>
             <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
-              Cancel Date
+              Cancel
             </Text>
           </TouchableOpacity>
+          
+          {/* ✅ NEW: Message Button - Only for upcoming dates */}
+          {!isPastDate && (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.messageButton,
+                hasUsedMessage && styles.disabledButton
+              ]}
+              onPress={() => setMessageModalVisible(true)}
+              disabled={isSubmitting || hasUsedMessage}>
+              <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit>
+                Message
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -775,6 +971,16 @@ const DateDetailScreen = () => {
           if (cb) cb();
         }}
       />
+      
+      {/* ✅ NEW: Message Modal */}
+      {dateDetails && (
+        <MessageModal
+          visible={isMessageModalVisible}
+          onClose={() => setMessageModalVisible(false)}
+          onSend={handleSendMessage}
+        />
+      )}
+      
       {dateDetails && (
         <RescheduleModal
           visible={isRescheduleModalVisible}
@@ -1124,6 +1330,78 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: scaleSize(15),
     marginTop: scaleSize(-5),
+  },
+  // ✅ NEW: Message button and modal styles
+  messageButton: {
+    backgroundColor: screenColors.PinkPrimary, // Changed from Gold to Pink
+  },
+  messageModalContainer: {
+    backgroundColor: screenColors.cardBackground,
+    borderRadius: 20,
+    maxWidth: '90%',
+    maxHeight: '85%',
+    alignSelf: 'center',
+  },
+  calImage: {
+    width: scaleSize(100), // Increased from 80 to 100
+    height: scaleSize(100), // Increased from 80 to 100
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 10, // Added spacing
+    resizeMode: 'contain', // Ensure proper scaling
+  },
+  calSpeech: {
+    fontSize: scaleSize(16),
+    color: screenColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 12,
+    fontStyle: 'italic',
+    lineHeight: scaleSize(22), // Added line height for better readability
+  },
+  calWarning: {
+    fontSize: scaleSize(13), // Slightly smaller
+    color: screenColors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: scaleSize(18), // Added line height
+  },
+  messageOption: {
+    padding: scaleSize(16),
+    backgroundColor: screenColors.inputBackground,
+    borderRadius: 10,
+    marginBottom: scaleSize(12),
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  messageOptionSelected: {
+    borderColor: screenColors.GoldPrimary,
+  },
+  messageOptionText: {
+    color: screenColors.textPrimary,
+    fontSize: scaleSize(15),
+    textAlign: 'center',
+  },
+  phoneSection: {
+    marginTop: scaleSize(20),
+    marginBottom: scaleSize(20),
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: scaleSize(12),
+  },
+  checkboxLabel: {
+    color: screenColors.textPrimary,
+    fontSize: scaleSize(15),
+    marginLeft: 10,
+  },
+  phoneInput: {
+    backgroundColor: screenColors.inputBackground,
+    borderRadius: 10,
+    padding: scaleSize(12),
+    color: screenColors.textPrimary,
+    fontSize: scaleSize(16),
+    marginTop: 10,
   },
 });
 

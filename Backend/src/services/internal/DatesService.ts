@@ -158,6 +158,23 @@ class DatesService {
     return this.datesRepository.updateDateEntry(dateId, dateEntry, client)
   }
 
+  // ✅ NEW: Add findConflictingDatesForUsers for reschedule validation
+  async findConflictingDatesForUsers(
+    userIds: string[],
+    date: string,
+    time: string,
+    client?: PoolClient,
+    dateIdToExclude?: number,
+  ): Promise<DateType[]> {
+    return this.datesRepository.findConflictingDatesForUsers(
+      userIds,
+      date,
+      time,
+      client,
+      dateIdToExclude,
+    )
+  }
+
   async getUpcomingDatesByUserId(userId: string): Promise<UpcomingDate[]> {
     return this.datesRepository.getUpcomingDatesByUserId(userId)
   }

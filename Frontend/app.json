@@ -4,11 +4,11 @@
     "slug": "daytz",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/calc-happy.png",
     "userInterfaceStyle": "dark",
     "scheme": "com.daytz.app",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/calc-happy.png",
       "resizeMode": "contain",
       "backgroundColor": "#121212"
     },
@@ -73,7 +73,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/calc-happy.png",
         "backgroundColor": "#121212"
       },
       "package": "com.daytz.app",

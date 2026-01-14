@@ -11,6 +11,7 @@ import * as transactionHandler from './handlers/transactionHandlers'
 import * as videoHandler from './handlers/videoHandlers'
 import * as notificationHandler from './handlers/notificationHandlers'
 import * as reportHandlers from './handlers/reportHandlers'
+import * as dateMessageHandlers from './handlers/dateMessageHandlers'
 
 const router = express.Router()
 console.log('BACKEND ROUTES: Router instance created.')
@@ -114,6 +115,18 @@ router.get(
   '/dates/me/upcoming',
   ...protectedReadMiddleware,
   asyncHandler(dateHandlers.getUpcomingDatesHandler),
+)
+
+// ✅ NEW: Date message routes
+router.post(
+  '/dates/:dateId/message',
+  ...protectedRouteMiddleware,
+  asyncHandler(dateMessageHandlers.sendDateMessageHandler),
+)
+router.get(
+  '/dates/:dateId/message-status',
+  ...protectedReadMiddleware,
+  asyncHandler(dateMessageHandlers.getMessageStatusHandler),
 )
 
 // --- NOTIFICATION ROUTES ---
