@@ -366,12 +366,17 @@ class NotificationService {
     const senderProfile = await this.getUserProfile(senderUserId, client)
     if (!senderProfile) return
 
-    const senderName = senderProfile.firstName || 'Someone'
+    // ✅ IMPROVED: Use actual first name, fallback to "Your date"
+    const senderName = senderProfile.firstName || 'Your date'
+    
+    // ✅ Professional title
     const title = `Message from ${senderName}`
-    let body = `${senderName}: ${messageType}`
+    
+    // ✅ IMPROVED: Professional message formatting
+    let body = `${senderName} sent you a message:\n\n"${messageType}"`
     
     if (phoneNumber) {
-      body += `\n\nPhone: ${phoneNumber}`
+      body += `\n\n📱 Phone: ${phoneNumber}`
     }
     
     const type = 'DATE_MESSAGE'

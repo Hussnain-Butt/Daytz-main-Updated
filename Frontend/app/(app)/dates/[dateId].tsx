@@ -416,14 +416,14 @@ const MessageModal = ({ visible, onClose, onSend }: any) => {
                 "Keep in mind you can only use this feature 1 time, so be sure to use it on the day of your date."
               </Text>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.submitModalButton, { marginTop: 16, paddingVertical: 12 }]}
+                style={[styles.modalButton, styles.submitModalButton, { marginTop: 16, paddingVertical: 10, paddingHorizontal: 20 }]}
                 onPress={() => setStep(2)}>
-                <Text style={styles.actionButtonText}>Continue</Text>
+                <Text style={[styles.actionButtonText, { fontSize: 15 }]}>Continue</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelModalButton, { marginTop: 8, paddingVertical: 12 }]}
+                style={[styles.modalButton, styles.cancelModalButton, { marginTop: 8, paddingVertical: 10, paddingHorizontal: 20 }]}
                 onPress={handleClose}>
-                <Text style={styles.actionButtonText}>Cancel</Text>
+                <Text style={[styles.actionButtonText, { fontSize: 15 }]}>Cancel</Text>
               </TouchableOpacity>
             </View>
           ) : (
